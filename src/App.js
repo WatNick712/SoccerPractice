@@ -5,7 +5,7 @@ import './App.css';
 import { db } from './firebase';
 import { collection, doc, setDoc, getDoc, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { DndContext, closestCenter } from '@dnd-kit/core';
-import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 // Sortable pill component for drills
@@ -248,41 +248,6 @@ function renderStars(rank) {
   );
 }
 
-// SVG Soccer Ball with fill percentage
-function SoccerBallProgress({ percent }) {
-  // percent: 0 = empty, 1 = full
-  // We'll mask the top part with a white rect for the unplanned portion
-  const height = 32;
-  const width = 32;
-  const fillHeight = Math.round(height * percent);
-  return (
-    <svg width={width} height={height} viewBox="0 0 32 32" style={{ display: 'block' }}>
-      {/* Ball outline */}
-      <circle cx="16" cy="16" r="15" fill="#fff" stroke="#222" strokeWidth="2" />
-      {/* Central pentagon */}
-      <polygon points="16,8 19,13 16,18 13,13" fill="#222" />
-      {/* Surrounding hexagons */}
-      <polygon points="16,8 22,10 22,16 16,18 10,16 10,10" fill="#fff" stroke="#222" strokeWidth="0.7" />
-      {/* More pentagons for realism */}
-      <polygon points="10,10 8,16 10,22 16,24 22,22 24,16 22,10 16,8" fill="none" stroke="#222" strokeWidth="0.7" />
-      {/* Black pentagons around */}
-      <polygon points="10,10 12,14 10,18 8,16" fill="#222" />
-      <polygon points="22,10 24,16 22,22 20,18" fill="#222" />
-      <polygon points="10,22 16,24 12,20" fill="#222" />
-      <polygon points="22,22 16,24 20,20" fill="#222" />
-      {/* Add some black patches for realism */}
-      <ellipse cx="11.5" cy="12.5" rx="1.1" ry="1" fill="#222" />
-      <ellipse cx="20.5" cy="12.5" rx="1.1" ry="1" fill="#222" />
-      <ellipse cx="13.5" cy="20.5" rx="1" ry="0.9" fill="#222" />
-      <ellipse cx="18.5" cy="20.5" rx="1" ry="0.9" fill="#222" />
-      {/* Mask for unplanned portion */}
-      {(percent < 1) && (
-        <rect x="0" y="0" width={width} height={height - fillHeight} fill="#fff" style={{ transition: 'height 0.3s' }} />
-      )}
-    </svg>
-  );
-}
-
 // Soccer ball image progress for calendar
 function SoccerBallImageProgress({ percent }) {
   const size = 32;
@@ -321,8 +286,6 @@ function App() {
 
   // Drill management state
   const [drills, setDrills] = useState([]);
-  const [drillModalOpen, setDrillModalOpen] = useState(false);
-  const [drillForm, setDrillForm] = useState({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
   const [drillLoading, setDrillLoading] = useState(false);
 
   // Drills assigned to session (for modal)
@@ -478,13 +441,6 @@ function App() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Handle drill selection in session modal
-  const handleDrillCheckbox = (id) => {
-    setSelectedDrillIds((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
-    );
-  };
-
   // Add a drill instance to the session, creating the session if it doesn't exist
   const handleAddDrillInstance = async (drillId, idx) => {
     setAddBtnAnimIdx(idx);
@@ -539,19 +495,6 @@ function App() {
     setModalOpen(false);
   };
 
-  // Drill handlers
-  const handleDrillFormChange = (e) => {
-    const { name, value, type, options } = e.target;
-    if (name === 'categories') {
-      const selected = Array.from(options).filter(o => o.selected).map(o => o.value);
-      setDrillForm({ ...drillForm, categories: selected });
-    } else if (name === 'rank') {
-      setDrillForm({ ...drillForm, rank: parseInt(value, 10) });
-    } else {
-      setDrillForm({ ...drillForm, [name]: value });
-    }
-  };
-
   // Open modal for editing
   const handleEditDrill = (drill) => {
     setDrillForm({
@@ -563,7 +506,6 @@ function App() {
       rank: drill.rank || 3,
     });
     setEditingDrill(drill);
-    setDrillModalOpen(true);
   };
 
   // Update handleAddDrill to handle editing
@@ -589,7 +531,6 @@ function App() {
     }
     setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
     setEditingDrill(null);
-    setDrillModalOpen(false);
   };
 
   // When closing modal, reset editingDrill
