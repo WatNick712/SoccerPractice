@@ -9,10 +9,10 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 
 // Sortable pill component for drills
-function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationIdx, setEditingDurationIdx, durationInput, setDurationInput, handleSaveDrillDuration }) {
+function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration }) {
   const isEditing = editingNoteDrillId === idx;
   const drillDuration = customDuration != null ? customDuration : duration;
-  const isEditingDuration = editingDurationIdx === idx;
+  const isEditingDuration = editingDurationKey === idx;
   return (
     <div
       ref={setNodeRef}
@@ -95,12 +95,12 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
               style={{ width: 50, marginLeft: 8, marginRight: 4, borderRadius: 6, border: '1px solid #ccc', padding: '2px 6px', fontSize: '0.95em' }}
             />
             <button onClick={() => handleSaveDrillDuration(idx, durationInput)} style={{ marginRight: 4, fontSize: '0.95em' }}>💾</button>
-            <button onClick={() => { setEditingDurationIdx(null); setDurationInput(''); }} style={{ fontSize: '0.95em' }}>✖</button>
+            <button onClick={() => { setEditingDurationKey(null); setDurationInput(''); }} style={{ fontSize: '0.95em' }}>✖</button>
           </span>
         ) : (
           <span style={{ marginLeft: 8 }}>
             <span>{drillDuration} min</span>
-            <button onClick={() => { setEditingDurationIdx(idx); setDurationInput((customDuration != null ? customDuration : duration).toString()); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>⏰</button>
+            <button onClick={() => { setEditingDurationKey(idx); setDurationInput((customDuration != null ? customDuration : duration).toString()); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>⏰</button>
           </span>
         )}
       </div>
@@ -109,7 +109,7 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
   );
 }
 
-function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationIdx, setEditingDurationIdx, durationInput, setDurationInput, handleSaveDrillDuration }) {
+function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration }) {
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
   const timeRanges = assignedDrills.map((drill) => {
@@ -152,8 +152,8 @@ function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStart
               idx={idx}
               dndId={`${drill.id}-${idx}`}
               customDuration={drill.customDuration}
-              editingDurationIdx={editingDurationIdx}
-              setEditingDurationIdx={setEditingDurationIdx}
+              editingDurationKey={editingDurationKey}
+              setEditingDurationKey={setEditingDurationKey}
               durationInput={durationInput}
               setDurationInput={setDurationInput}
               handleSaveDrillDuration={handleSaveDrillDuration}
@@ -166,7 +166,7 @@ function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStart
 }
 
 function SortableDrillPillWrapper(props) {
-  const { drill, onRemove, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationIdx, setEditingDurationIdx, durationInput, setDurationInput, handleSaveDrillDuration } = props;
+  const { drill, onRemove, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -198,8 +198,8 @@ function SortableDrillPillWrapper(props) {
       rank={drill.rank}
       idx={idx}
       customDuration={customDuration}
-      editingDurationIdx={editingDurationIdx}
-      setEditingDurationIdx={setEditingDurationIdx}
+      editingDurationKey={editingDurationKey}
+      setEditingDurationKey={setEditingDurationKey}
       durationInput={durationInput}
       setDurationInput={setDurationInput}
       handleSaveDrillDuration={handleSaveDrillDuration}
@@ -336,7 +336,7 @@ function App() {
   const [addBtnAnimIdx, setAddBtnAnimIdx] = useState(null);
 
   // State for editing custom duration
-  const [editingDurationIdx, setEditingDurationIdx] = useState(null);
+  const [editingDurationKey, setEditingDurationKey] = useState(null);
   const [durationInput, setDurationInput] = useState('');
 
   // Filter state for drill-section
@@ -633,7 +633,7 @@ function App() {
       ...prev,
       [date.toDateString()]: updatedSession,
     }));
-    setEditingDurationIdx(null);
+    setEditingDurationKey(null);
     setDurationInput('');
   };
 
@@ -776,7 +776,23 @@ function App() {
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button onClick={() => handleEditDrill(drill)} style={{ marginLeft: 8 }}>Edit</button>
+                        <button
+                          onClick={() => {
+                            setEditingDrill(drill);
+                            setDrillForm({
+                              name: drill.name || '',
+                              description: drill.description || '',
+                              duration: drill.duration ? drill.duration.toString() : '',
+                              link: drill.link || '',
+                              categories: drill.categories || [],
+                              rank: drill.rank || 3,
+                            });
+                            setDrillModalOpen(true);
+                          }}
+                          style={{ marginLeft: 8 }}
+                        >
+                          Edit
+                        </button>
                         <button onClick={() => handleDeleteDrill(drill.id)} style={{ marginLeft: 8 }}>Delete</button>
                       </div>
                     </div>
@@ -975,8 +991,8 @@ function App() {
             noteInput={noteInput}
             setNoteInput={setNoteInput}
             handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
-            editingDurationIdx={editingDurationIdx}
-            setEditingDurationIdx={setEditingDurationIdx}
+            editingDurationKey={editingDurationKey}
+            setEditingDurationKey={setEditingDurationKey}
             durationInput={durationInput}
             setDurationInput={setDurationInput}
             handleSaveDrillDuration={handleSaveDrillDuration}
@@ -1061,6 +1077,116 @@ function App() {
             <br />
             <button onClick={handleConfirmSaveTemplate} disabled={!templateName}>Save</button>
             <button onClick={() => setTemplateModalOpen(false)} style={{ marginLeft: 8 }}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {drillModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>{editingDrill ? 'Edit Drill/Exercise' : 'Add Drill/Exercise'}</h2>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!drillForm.name || !drillForm.duration) return;
+              const newDrill = {
+                name: drillForm.name,
+                description: drillForm.description,
+                duration: parseInt(drillForm.duration, 10),
+                link: drillForm.link,
+                categories: drillForm.categories,
+                rank: drillForm.rank,
+              };
+              if (editingDrill) {
+                await setDoc(doc(db, 'drills', editingDrill.id), newDrill);
+                setDrills(drills.map(d => d.id === editingDrill.id ? { id: editingDrill.id, ...newDrill } : d));
+              } else {
+                const docRef = await addDoc(collection(db, 'drills'), newDrill);
+                setDrills([...drills, { id: docRef.id, ...newDrill }]);
+              }
+              setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
+              setEditingDrill(null);
+              setDrillModalOpen(false);
+            }}>
+              <label>
+                Name:<br />
+                <input
+                  type="text"
+                  name="name"
+                  value={drillForm.name}
+                  onChange={e => setDrillForm({ ...drillForm, name: e.target.value })}
+                  required
+                />
+              </label>
+              <br />
+              <label>
+                Description:<br />
+                <textarea
+                  name="description"
+                  value={drillForm.description}
+                  onChange={e => setDrillForm({ ...drillForm, description: e.target.value })}
+                />
+              </label>
+              <br />
+              <label>
+                Duration (minutes):<br />
+                <input
+                  type="number"
+                  name="duration"
+                  value={drillForm.duration}
+                  onChange={e => setDrillForm({ ...drillForm, duration: e.target.value })}
+                  required
+                  min="1"
+                />
+              </label>
+              <br />
+              <label>
+                Link (YouTube, Facebook, etc):<br />
+                <input
+                  type="url"
+                  name="link"
+                  value={drillForm.link}
+                  onChange={e => setDrillForm({ ...drillForm, link: e.target.value })}
+                  placeholder="https://..."
+                />
+              </label>
+              <br />
+              <label>
+                Categories:<br />
+                <select
+                  name="categories"
+                  multiple
+                  value={drillForm.categories}
+                  onChange={e => {
+                    const selected = Array.from(e.target.options).filter(o => o.selected).map(o => o.value);
+                    setDrillForm({ ...drillForm, categories: selected });
+                  }}
+                  style={{ width: '100%', minHeight: 80, marginBottom: 8 }}
+                >
+                  {CATEGORY_OPTIONS.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </label>
+              <br />
+              <label>
+                Rank:<br />
+                <select
+                  name="rank"
+                  value={drillForm.rank}
+                  onChange={e => setDrillForm({ ...drillForm, rank: parseInt(e.target.value, 10) })}
+                  style={{ width: '100px', marginBottom: 8 }}
+                >
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                {renderStars(drillForm.rank)}
+              </label>
+              <br />
+              <button type="submit">{editingDrill ? 'Save Changes' : 'Add Drill'}</button>
+              <button type="button" onClick={() => { setDrillModalOpen(false); setEditingDrill(null); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 }); }} style={{ marginLeft: 8 }}>
+                Cancel
+              </button>
+            </form>
           </div>
         </div>
       )}
