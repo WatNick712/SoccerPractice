@@ -1,5 +1,11 @@
 .App {
-  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: #282c34;
+  gap: 2rem;
+  flex-wrap: wrap;
 }
 
 .App-logo {
@@ -34,5 +40,215 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+.calendar-container {
+  width: 100%;
+  max-width: 800px;
+  height: 80vh;
+  padding: 0;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.react-calendar {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 400px;
+  font-size: 2rem;
+  border: none;
+  background: transparent;
+}
+
+.react-calendar__navigation__label {
+  height: 6rem !important;
+  min-height: 6rem !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.react-calendar__navigation__label__labelText {
+  font-size: 5.0rem !important;
+  font-weight: bold;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .calendar-container {
+    max-width: 100%;
+    height: auto;
+    min-height: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .react-calendar {
+    font-size: 1rem;
+    min-height: 300px;
+  }
+  .react-calendar__navigation__label {
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+  }
+  .react-calendar__navigation__label__labelText {
+    font-size: 1.5rem !important;
+  }
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 12px;
+  max-width: 90vw;
+  width: 400px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+  z-index: 1001;
+}
+
+.modal input[type="text"],
+.modal input[type="time"] {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.modal button {
+  padding: 0.5rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  background: #282c34;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.modal button[type="button"] {
+  background: #aaa;
+}
+
+.session-info {
+  margin-top: 2rem;
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  max-width: 800px;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  color: #222;
+}
+
+@media (max-width: 600px) {
+  .modal {
+    width: 95vw;
+    padding: 1rem;
+  }
+  .session-info {
+    padding: 1rem;
+    font-size: 0.95rem;
+  }
+}
+
+.drill-section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  padding: 2rem 1.5rem;
+  max-width: 400px;
+  width: 100%;
+  margin-top: 2rem;
+  color: #222;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.drill-section h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.drill-section button {
+  margin-bottom: 1rem;
+  padding: 0.5rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  background: #282c34;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.drill-section ul {
+  list-style: none;
+  padding: 0;
+  width: 100%;
+}
+
+.drill-section li {
+  margin-bottom: 1.2rem;
+  background: #f7f7f7;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.drill-section li button {
+  background: #c00;
+  color: #fff;
+  margin-left: 1rem;
+  font-size: 0.9rem;
+  padding: 0.3rem 0.8rem;
+}
+
+@media (max-width: 1100px) {
+  .App {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  .drill-section {
+    margin-top: 1rem;
+    max-width: 95vw;
+    padding: 1rem;
+  }
+}
+
+.add-btn-animate {
+  animation: addBtnFlash 0.3s;
+}
+
+@keyframes addBtnFlash {
+  0% {
+    transform: scale(1);
+    background: #e0e0e0;
+  }
+  50% {
+    transform: scale(1.15);
+    background: #b3e5fc;
+  }
+  100% {
+    transform: scale(1);
+    background: #e0e0e0;
   }
 }
