@@ -290,9 +290,6 @@ function App() {
   // Drills assigned to session (for modal)
   const [selectedDrillIds, setSelectedDrillIds] = useState([]);
 
-  // Editing state
-  const [editingDrill, setEditingDrill] = useState(null);
-
   // Add notes state for editing
   const [editingNoteDrillId, setEditingNoteDrillId] = useState(null);
   const [noteInput, setNoteInput] = useState('');
@@ -1057,7 +1054,7 @@ function App() {
       {drillModalOpen && (
         <div className="modal-backdrop">
           <div className="modal">
-            <h2>{editingDrill ? 'Edit Drill/Exercise' : 'Add Drill/Exercise'}</h2>
+            <h2>{drillForm.name ? 'Edit Drill/Exercise' : 'Add Drill/Exercise'}</h2>
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (!drillForm.name || !drillForm.duration) return;
@@ -1069,9 +1066,9 @@ function App() {
                 categories: drillForm.categories,
                 rank: drillForm.rank,
               };
-              if (editingDrill) {
-                await setDoc(doc(db, 'drills', editingDrill.id), newDrill);
-                setDrills(drills.map(d => d.id === editingDrill.id ? { id: editingDrill.id, ...newDrill } : d));
+              if (drillForm.name) {
+                await setDoc(doc(db, 'drills', drillForm.name), newDrill);
+                setDrills(drills.map(d => d.name === drillForm.name ? { ...d, ...newDrill } : d));
               } else {
                 const docRef = await addDoc(collection(db, 'drills'), newDrill);
                 setDrills([...drills, { id: docRef.id, ...newDrill }]);
@@ -1155,7 +1152,7 @@ function App() {
                 {renderStars(drillForm.rank)}
               </label>
               <br />
-              <button type="submit">{editingDrill ? 'Save Changes' : 'Add Drill'}</button>
+              <button type="submit">{drillForm.name ? 'Save Changes' : 'Add Drill'}</button>
               <button type="button" onClick={() => { setDrillModalOpen(false); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 }); }} style={{ marginLeft: 8 }}>
                 Cancel
               </button>
