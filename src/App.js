@@ -363,6 +363,10 @@ function App() {
   // State to control template-section modal visibility
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
 
+  // Add drill modal state
+  const [drillModalOpen, setDrillModalOpen] = useState(false);
+  const [drillForm, setDrillForm] = useState({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
+
   // Fetch drills from Firestore
   useEffect(() => {
     const fetchDrills = async () => {
