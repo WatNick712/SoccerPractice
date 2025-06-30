@@ -498,35 +498,10 @@ function App() {
     setModalOpen(false);
   };
 
-  // Open modal for editing
-  const handleEditDrill = (drill) => {
-    setDrillForm({
-      name: drill.name || '',
-      description: drill.description || '',
-      duration: drill.duration ? drill.duration.toString() : '',
-      link: drill.link || '',
-      categories: drill.categories || [],
-      rank: drill.rank || 3,
-    });
-    setEditingDrill(drill);
-  };
-
-  // Update handleAddDrill to handle editing
-  // const handleAddOrEditDrill = ...;
-
-  // When closing modal, reset editingDrill
-  // const handleCloseDrillModal = ...;
-
   const handleDeleteDrill = async (id) => {
     await deleteDoc(doc(db, 'drills', id));
     setDrills(drills.filter((drill) => drill.id !== id));
   };
-
-  // Helper to get session notes for a drill
-  // const getDrillNote = ...;
-
-  // Save note for a drill in the session
-  // const handleSaveDrillNote = ...;
 
   // FIX: Define session before using it
   const session = sessions[date.toDateString()];
@@ -778,7 +753,6 @@ function App() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <button
                           onClick={() => {
-                            setEditingDrill(drill);
                             setDrillForm({
                               name: drill.name || '',
                               description: drill.description || '',
@@ -1103,7 +1077,6 @@ function App() {
                 setDrills([...drills, { id: docRef.id, ...newDrill }]);
               }
               setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
-              setEditingDrill(null);
               setDrillModalOpen(false);
             }}>
               <label>
@@ -1183,7 +1156,7 @@ function App() {
               </label>
               <br />
               <button type="submit">{editingDrill ? 'Save Changes' : 'Add Drill'}</button>
-              <button type="button" onClick={() => { setDrillModalOpen(false); setEditingDrill(null); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 }); }} style={{ marginLeft: 8 }}>
+              <button type="button" onClick={() => { setDrillModalOpen(false); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 }); }} style={{ marginLeft: 8 }}>
                 Cancel
               </button>
             </form>
