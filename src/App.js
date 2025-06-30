@@ -363,7 +363,7 @@ function App() {
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
 
   // Add drill modal state
-  const [drillModalOpen, setDrillModalOpen] = useState(false);
+  // const [drillModalOpen, setDrillModalOpen] = useState(false);
   const [drillForm, setDrillForm] = useState({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
 
   // Fetch drills from Firestore
@@ -512,36 +512,10 @@ function App() {
   };
 
   // Update handleAddDrill to handle editing
-  const handleAddOrEditDrill = async (e) => {
-    e.preventDefault();
-    if (!drillForm.name || !drillForm.duration) return;
-    const newDrill = {
-      name: drillForm.name,
-      description: drillForm.description,
-      duration: parseInt(drillForm.duration, 10),
-      link: drillForm.link,
-      categories: drillForm.categories,
-      rank: drillForm.rank,
-    };
-    if (editingDrill) {
-      // Update existing drill
-      await setDoc(doc(db, 'drills', editingDrill.id), newDrill);
-      setDrills(drills.map(d => d.id === editingDrill.id ? { id: editingDrill.id, ...newDrill } : d));
-    } else {
-      // Add new drill
-      const docRef = await addDoc(collection(db, 'drills'), newDrill);
-      setDrills([...drills, { id: docRef.id, ...newDrill }]);
-    }
-    setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
-    setEditingDrill(null);
-  };
+  // const handleAddOrEditDrill = ...;
 
   // When closing modal, reset editingDrill
-  const handleCloseDrillModal = () => {
-    setDrillModalOpen(false);
-    setEditingDrill(null);
-    setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
-  };
+  // const handleCloseDrillModal = ...;
 
   const handleDeleteDrill = async (id) => {
     await deleteDoc(doc(db, 'drills', id));
@@ -549,20 +523,10 @@ function App() {
   };
 
   // Helper to get session notes for a drill
-  const getDrillNote = (drillId) => (sessions[date.toDateString()] && sessions[date.toDateString()].notes && sessions[date.toDateString()].notes[drillId]) || '';
+  // const getDrillNote = ...;
 
   // Save note for a drill in the session
-  const handleSaveDrillNote = async (drillId) => {
-    const newNotes = { ...(sessions[date.toDateString()] && sessions[date.toDateString()].notes) || {}, [drillId]: noteInput };
-    const updatedSession = { ...sessions[date.toDateString()], notes: newNotes };
-    setSessions((prev) => ({
-      ...prev,
-      [date.toDateString()]: updatedSession,
-    }));
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), updatedSession);
-    setEditingNoteDrillId(null);
-    setNoteInput('');
-  };
+  // const handleSaveDrillNote = ...;
 
   // FIX: Define session before using it
   const session = sessions[date.toDateString()];
