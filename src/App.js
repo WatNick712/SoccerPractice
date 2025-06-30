@@ -174,7 +174,6 @@ function SortableDrillPillWrapper(props) {
     zIndex: isDragging ? 2 : 1,
   };
   const drillDuration = customDuration != null ? customDuration : drill.duration;
-  const isEditingDuration = editingDurationIdx === idx;
   return (
     <SortableDrillPill
       id={drill.id}
