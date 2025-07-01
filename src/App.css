@@ -124,39 +124,87 @@
   position: relative;
 }
 
-.modal input[type="text"],
-.modal input[type="time"] {
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.modal form label {
+  font-weight: 500;
+  color: #222;
+  margin-bottom: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal form input[type="text"],
+.modal form input[type="number"],
+.modal form input[type="url"],
+.modal form textarea,
+.modal form select {
   width: 100%;
-  padding: 0.5rem;
-  margin-top: 0.25rem;
-  margin-bottom: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 1rem;
-  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1.5px solid #cfd8dc;
+  border-radius: 7px;
+  font-size: 1em;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  background: #fafbfc;
+  transition: border 0.2s;
 }
 
-.modal button {
-  padding: 0.5rem 1.2rem;
+.modal form input:focus,
+.modal form textarea:focus,
+.modal form select:focus {
+  border-color: #1976d2;
+  outline: none;
+}
+
+.modal form textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.modal form select[multiple] {
+  min-height: 80px;
+}
+
+.modal form .rank-stars {
+  margin-left: 8px;
+  font-size: 1.1em;
+  color: #f5b301;
+  vertical-align: middle;
+}
+
+.modal form button[type="submit"],
+.modal form button[type="button"] {
+  padding: 8px 20px;
+  border-radius: 7px;
   border: none;
-  border-radius: 6px;
-  background: #282c34;
+  background: #1976d2;
   color: #fff;
-  font-size: 1rem;
+  font-weight: bold;
+  font-size: 1em;
   cursor: pointer;
+  margin-top: 6px;
+  margin-bottom: 0;
+  transition: background 0.2s;
 }
 
-.modal button[type="button"] {
-  background: #aaa;
+.modal form button[type="button"] {
+  background: #cfd8dc;
+  color: #222;
+  margin-left: 8px;
 }
 
-.session-info {
-  max-width: 800px;
-  margin: 24px auto;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-  padding: 24px;
+.modal form button[type="submit"]:hover {
+  background: #1251a3;
+}
+
+.modal form button[type="button"]:hover {
+  background: #b0bec5;
 }
 
 @media (max-width: 600px) {
@@ -168,8 +216,14 @@
     border-radius: 0;
     margin: 0;
   }
-  .modal form, .modal label, .modal input, .modal select, .modal textarea {
-    font-size: 1em;
+  .modal form {
+    gap: 12px;
+  }
+  .modal form button[type="submit"],
+  .modal form button[type="button"] {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-bottom: 6px;
   }
   .session-info {
     max-width: 100vw;
@@ -189,6 +243,15 @@
     width: 100%;
     margin: 8px 0 !important;
   }
+}
+
+.session-info {
+  max-width: 800px;
+  margin: 24px auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  padding: 24px;
 }
 
 .drill-section {
