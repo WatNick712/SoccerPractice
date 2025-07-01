@@ -328,6 +328,42 @@ function App() {
 
   const sessionInfoRef = useRef(null);
 
+  // Track the currently visible month in the calendar
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+
+  // Helper to get first and last day of month
+  function getMonthRange(date) {
+    const first = new Date(date.getFullYear(), date.getMonth(), 1);
+    const last = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return { first, last };
+  }
+
+  // Fetch all sessions for the selected team for the visible month
+  useEffect(() => {
+    if (!selectedTeam || !calendarMonth) {
+      setSessions({});
+      return;
+    }
+    const fetchSessionsForMonth = async () => {
+      const { first, last } = getMonthRange(calendarMonth);
+      // Firestore does not support range queries on strings, so store date as ISO string (yyyy-mm-dd) or use timestamps for best results.
+      // Here, we use toDateString() so we need to fetch all and filter in JS.
+      const q = query(collection(db, 'sessions'), where('teamId', '==', selectedTeam.id));
+      const querySnapshot = await getDocs(q);
+      const sessionsByDate = {};
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        // Parse the date string to a Date object
+        const sessionDate = new Date(data.date);
+        if (sessionDate >= first && sessionDate <= last) {
+          sessionsByDate[data.date] = { ...data, id: docSnap.id };
+        }
+      });
+      setSessions(sessionsByDate);
+    };
+    fetchSessionsForMonth();
+  }, [selectedTeam, calendarMonth]);
+
   // useCallback for fetchUserTeams to fix useEffect dependency
   const fetchUserTeams = useCallback(async (userId) => {
     setTeamLoading(true);
@@ -369,32 +405,6 @@ function App() {
     };
     fetchDrills();
   }, [selectedTeam]);
-
-  // Load session for selected date from Firestore
-  useEffect(() => {
-    if (!selectedTeam) {
-      setSessions({});
-      return;
-    }
-    const fetchSession = async () => {
-      setLoading(true);
-      const q = query(collection(db, 'sessions'), where('teamId', '==', selectedTeam.id), where('date', '==', date.toDateString()));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
-        setSessions((prev) => ({ ...prev, [date.toDateString()]: { ...docSnap.data(), id: docSnap.id } }));
-      } else {
-        setSessions((prev) => {
-          const newSessions = { ...prev };
-          delete newSessions[date.toDateString()];
-          return newSessions;
-        });
-      }
-      setLoading(false);
-    };
-    fetchSession();
-    // eslint-disable-next-line
-  }, [date, selectedTeam]);
 
   // Sync form and drill selection with session data for the selected date
   useEffect(() => {
@@ -998,6 +1008,7 @@ function App() {
               value={date}
               onClickDay={handleDateClick}
               tileContent={calendarTileContent}
+              onActiveStartDateChange={({ activeStartDate }) => setCalendarMonth(activeStartDate)}
             />
           </div>
         )}

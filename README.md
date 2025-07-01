@@ -4,7 +4,7 @@ A modern, mobile-friendly web app for planning, organizing, and tracking soccer 
 
 ## Features
 
-- **Calendar View**: Visual monthly calendar with soccer ball icons on dates with sessions. The ball fills up based on how much of the session is planned.
+- **Calendar View**: Visual monthly calendar with soccer ball icons on dates with sessions. The ball fills up based on how much of the session is planned. Icons load immediately for all sessions in the currently visible month after login or when switching months/teams.
 - **Session Planner**: Click a date to plan a session (location, start/end time, drills, notes, etc.).
 - **Drill/Exercise Management**:
   - Add, edit, and delete drills with name, description, duration, link, categories (including Water Break), and rank (1–5 stars).
@@ -13,7 +13,7 @@ A modern, mobile-friendly web app for planning, organizing, and tracking soccer 
   - Adjust drill duration per session instance.
 - **Session Templates**:
   - Save any session as a reusable template.
-  - Apply templates to any date.
+  - Apply templates to any date (templates are scoped to the selected team).
   - Delete templates as needed.
 - **Persistent Storage**: All data is saved in Firestore and synced in real time.
 - **Mobile-Friendly UI**: Responsive, touch-friendly, and easy to use on any device.
@@ -31,12 +31,16 @@ A modern, mobile-friendly web app for planning, organizing, and tracking soccer 
   - View all team members in a modal.
   - Team creator can remove members (except themselves).
   - Invite new members by sharing the team invite code (with a copy button and instructions).
+  - Team members modal now shows names/emails (not just UIDs) using a Firestore users collection.
 - **Sessions and Drills Scoped to Teams**:
   - All sessions and drills are associated with a specific team.
   - Only sessions and drills for the selected team are visible and editable.
+- **Sessions Calendar Loading**:
+  - Calendar loads and displays soccer ball icons for all sessions in the currently visible month immediately after login or when switching months/teams for performance.
 - **UI/UX Improvements**:
   - Team and user info are visually prominent in the header.
   - Team selection, creation, joining, and member management are all modal-based for a smooth workflow.
+  - Modals and session details are fully responsive and never overlapped by fixed UI elements (like the bottom bar).
 
 ### Typical Workflow
 1. Sign in with Google.
@@ -44,6 +48,7 @@ A modern, mobile-friendly web app for planning, organizing, and tracking soccer 
 3. Manage team members and share the invite code to add others.
 4. Plan sessions and drills for the selected team. All data is scoped to the team.
 5. Switch teams at any time to manage other rosters and sessions.
+6. See soccer ball icons for all planned sessions in the visible month immediately after login or when changing months.
 
 See the app UI for details on each feature.
 
@@ -55,7 +60,7 @@ See the app UI for details on each feature.
 3. **Add drills** via the Drills/Exercises button/modal.
 4. **Assign drills** to sessions, reorder, and add notes.
 5. **Save sessions as templates** for easy reuse.
-6. **See progress** on the calendar with soccer ball icons.
+6. **See progress** on the calendar with soccer ball icons (icons update for the visible month as you navigate).
 
 ### For Developers
 
@@ -134,6 +139,7 @@ firebase deploy
 
 - The calendar month/year label (e.g., "June 2025") font size does not increase as expected due to internal library styling. Needs further investigation and fix to allow for larger, more visible header text.
 - The soccer ball progress icon on the calendar does not perfectly match the planned/total time ratio. The visual fill may not accurately reflect the session planning progress and needs further refinement for precise feedback.
+- For performance, only sessions for the currently visible month are loaded and shown on the calendar. If you want to see icons for other months, navigate to that month and the data will load.
 
 ## Responsive Design
 
