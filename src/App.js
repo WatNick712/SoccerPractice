@@ -3,12 +3,12 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './App.css';
 import { db, auth, googleProvider, teamsCollection } from './firebase';
-import { collection, doc, setDoc, getDoc, addDoc, getDocs, deleteDoc, query, where, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, getDocs, deleteDoc, query, where, updateDoc, arrayUnion } from 'firebase/firestore';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc as firestoreDoc, setDoc as firestoreSetDoc, getDoc as firestoreGetDoc, collection as firestoreCollection, getDocs as firestoreGetDocs } from 'firebase/firestore';
+import { doc as firestoreDoc, setDoc as firestoreSetDoc, getDoc as firestoreGetDoc, collection as firestoreCollection } from 'firebase/firestore';
 
 // Define CATEGORY_OPTIONS at the top
 const CATEGORY_OPTIONS = [
