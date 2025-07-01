@@ -1533,8 +1533,27 @@ function App() {
         </div>
       )}
       {drillModalOpen && (
-        <div className="modal-backdrop" style={{ zIndex: 10000 }}>
-          <div className="modal" style={{ zIndex: 10001 }}>
+        <div className="modal-backdrop" style={{ zIndex: 12000 }}>
+          <div className="modal" style={{
+            zIndex: 12001,
+            maxWidth: 500,
+            minWidth: 340,
+            marginTop: 90, // push below header
+            boxShadow: '0 8px 32px rgba(25, 118, 210, 0.18)',
+            background: '#fff',
+            borderRadius: 18,
+            position: 'relative',
+            padding: 32,
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            <button
+              onClick={() => { setDrillModalOpen(false); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 }); }}
+              style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
+              aria-label="Close drill modal"
+            >
+              ×
+            </button>
             <h2>{drillForm.name ? 'Edit Drill/Exercise' : 'Add Drill/Exercise'}</h2>
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -1611,7 +1630,7 @@ function App() {
                     const selected = Array.from(e.target.options).filter(o => o.selected).map(o => o.value);
                     setDrillForm({ ...drillForm, categories: selected });
                   }}
-                  style={{ width: '100%', minHeight: 80, marginBottom: 8 }}
+                  style={{ width: '100%', minHeight: 180, marginBottom: 8 }}
                 >
                   {CATEGORY_OPTIONS.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
