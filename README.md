@@ -20,6 +20,33 @@ A modern, mobile-friendly web app for planning, organizing, and tracking soccer 
 - **Visual Feedback**: Animated buttons, clear modals, and progress indicators.
 - **GitHub Actions CI/CD**: Automatic deployment to Firebase Hosting on every push to `main`.
 
+## Major Features (2024-07-01)
+
+- **Firebase Authentication**: Users must sign in with Google to access the app.
+- **Team Management**:
+  - Create a new team or join an existing team using an invite code.
+  - Switch between multiple teams you are a member of.
+  - Team name and user info are prominently displayed in the header.
+- **Team Member Management**:
+  - View all team members in a modal.
+  - Team creator can remove members (except themselves).
+  - Invite new members by sharing the team invite code (with a copy button and instructions).
+- **Sessions and Drills Scoped to Teams**:
+  - All sessions and drills are associated with a specific team.
+  - Only sessions and drills for the selected team are visible and editable.
+- **UI/UX Improvements**:
+  - Team and user info are visually prominent in the header.
+  - Team selection, creation, joining, and member management are all modal-based for a smooth workflow.
+
+### Typical Workflow
+1. Sign in with Google.
+2. Create a team or join an existing team using an invite code.
+3. Manage team members and share the invite code to add others.
+4. Plan sessions and drills for the selected team. All data is scoped to the team.
+5. Switch teams at any time to manage other rosters and sessions.
+
+See the app UI for details on each feature.
+
 ## Usage
 
 ### For End Users
@@ -106,3 +133,20 @@ firebase deploy
 ## Known Issues
 
 - The calendar month/year label (e.g., "June 2025") font size does not increase as expected due to internal library styling. Needs further investigation and fix to allow for larger, more visible header text.
+- The soccer ball progress icon on the calendar does not perfectly match the planned/total time ratio. The visual fill may not accurately reflect the session planning progress and needs further refinement for precise feedback.
+
+## Responsive Design
+
+This app is fully responsive and works well on all screen sizes, including mobile phones, tablets, and desktop computers. All views and modals automatically adapt to the device being used, ensuring a smooth experience for every user.
+
+## Features / Improvements
+
+- Session details panel is now scrollable and always visible above the fixed bottom bar, with extra bottom padding to prevent overlap with action buttons.
+- Calendar and session details are both centered with equal spacing on all sides for a modern, balanced UI.
+- Drills/Exercises and Previous Practice Sessions buttons are always accessible and do not overlap content.
+- Robust support for team-based data separation: all drills, sessions, and templates are scoped to the selected team.
+- Modern, responsive layout for all main app panels.
+
+## Data Migration
+
+- A one-time migration function was used to add the `teamId` field to all existing drills, sessions, and sessionTemplates in Firestore. This ensures all data is now properly scoped to the current team and visible in the app.

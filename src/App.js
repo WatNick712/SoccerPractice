@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './App.css';
-import { db } from './firebase';
-import { collection, doc, setDoc, getDoc, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { db, auth, googleProvider, teamsCollection } from './firebase';
+import { collection, doc, setDoc, getDoc, addDoc, getDocs, deleteDoc, query, where, updateDoc, arrayUnion } from 'firebase/firestore';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+
+// Define CATEGORY_OPTIONS at the top
+const CATEGORY_OPTIONS = [
+  'Conditioning', 'Defending', 'Finishing', 'Indoor Gym', 'Overloads', 'Passing',
+  'Possession', 'Position and Shape', 'Pressing', 'Scanning', 'Transition', 'Warmup', 'Water Break'
+];
 
 // Sortable pill component for drills
 function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration }) {
@@ -250,7 +257,7 @@ function renderStars(rank) {
 // Soccer ball image progress for calendar
 function SoccerBallImageProgress({ percent }) {
   const size = 32;
-  const fillHeight = Math.round(size * percent);
+  const fillHeight = percent >= 1 ? size : size * percent;
   return (
     <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
       <div style={{
@@ -261,15 +268,18 @@ function SoccerBallImageProgress({ percent }) {
         borderRadius: '50%',
         filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.10))',
       }} />
-      {(percent < 1 && percent > 0) && (
+      {percent > 0 && (
         <div style={{
           position: 'absolute',
-          top: 0, left: 0, width: size, height: size - fillHeight,
-          background: '#fff',
-          borderTopLeftRadius: '50%',
-          borderTopRightRadius: '50%',
+          left: 0,
+          bottom: 0,
+          width: size,
+          height: fillHeight,
+          background: 'rgba(76, 175, 80, 0.7)',
+          borderRadius: '0 0 50% 50% / 0 0 100% 100%',
           zIndex: 2,
           transition: 'height 0.3s',
+          pointerEvents: 'none',
         }} />
       )}
     </div>
@@ -277,97 +287,78 @@ function SoccerBallImageProgress({ percent }) {
 }
 
 function App() {
+  // All hooks at the top level
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [teams, setTeams] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [teamNameInput, setTeamNameInput] = useState('');
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [membersModalOpen, setMembersModalOpen] = useState(false);
   const [date, setDate] = useState(new Date());
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ location: '', start: '', end: '' });
   const [sessions, setSessions] = useState({});
   const [loading, setLoading] = useState(false);
-
-  // Drill management state
   const [drills, setDrills] = useState([]);
   const [drillLoading, setDrillLoading] = useState(false);
-
-  // Drills assigned to session (for modal)
-  const [selectedDrillIds, setSelectedDrillIds] = useState([]);
-
-  // Add notes state for editing
   const [editingNoteDrillId, setEditingNoteDrillId] = useState(null);
   const [noteInput, setNoteInput] = useState('');
-
-  // Filter state for modal
   const [drillCategoryFilter, setDrillCategoryFilter] = useState('');
   const [drillRankFilter, setDrillRankFilter] = useState(1);
   const [drillNameFilter, setDrillNameFilter] = useState('');
-
-  // Filtered drills for modal
-  const filteredDrills = drills.filter(drill => {
-    const categoryMatch = !drillCategoryFilter || (drill.categories && drill.categories.includes(drillCategoryFilter));
-    const rankMatch = (drill.rank || 3) >= drillRankFilter;
-    const nameMatch = !drillNameFilter || (drill.name && drill.name.toLowerCase().includes(drillNameFilter.toLowerCase()));
-    return categoryMatch && rankMatch && nameMatch;
-  });
-
-  const CATEGORY_OPTIONS = [
-    'Conditioning',
-    'Defending',
-    'Finishing',
-    'Indoor Gym',
-    'Overloads',
-    'Passing',
-    'Possession',
-    'Position and Shape',
-    'Pressing',
-    'Scanning',
-    'Transition',
-    'Warmup',
-    'Water Break',
-  ];
-
-  // State for templates
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templates, setTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
-
-  // Animation state for Add buttons
   const [addBtnAnimIdx, setAddBtnAnimIdx] = useState(null);
-
-  // State for editing custom duration
   const [editingDurationKey, setEditingDurationKey] = useState(null);
   const [durationInput, setDurationInput] = useState('');
-
-  // Filter state for drill-section
   const [drillListNameFilter, setDrillListNameFilter] = useState('');
   const [drillListCategoryFilter, setDrillListCategoryFilter] = useState('');
   const [drillListRankFilter, setDrillListRankFilter] = useState(1);
-  // Filtered drills for drill-section
-  const filteredDrillList = drills.filter(drill => {
-    const categoryMatch = !drillListCategoryFilter || (drill.categories && drill.categories.includes(drillListCategoryFilter));
-    const rankMatch = (drill.rank || 3) >= drillListRankFilter;
-    const nameMatch = !drillListNameFilter || (drill.name && drill.name.toLowerCase().includes(drillListNameFilter.toLowerCase()));
-    return categoryMatch && rankMatch && nameMatch;
-  });
-  const clearDrillListFilters = () => {
-    setDrillListNameFilter('');
-    setDrillListCategoryFilter('');
-    setDrillListRankFilter(1);
-  };
-
-  // State to control drill-section modal visibility
   const [drillSectionOpen, setDrillSectionOpen] = useState(false);
-
-  // State to control template-section modal visibility
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
-
-  // Add drill modal state
   const [drillModalOpen, setDrillModalOpen] = useState(false);
   const [drillForm, setDrillForm] = useState({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
 
-  // Fetch drills from Firestore
+  const sessionInfoRef = useRef(null);
+
+  // useCallback for fetchUserTeams to fix useEffect dependency
+  const fetchUserTeams = useCallback(async (userId) => {
+    setTeamLoading(true);
+    const q = query(teamsCollection, where('members', 'array-contains', userId));
+    const snapshot = await getDocs(q);
+    const userTeams = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setTeams(userTeams);
+    setTeamLoading(false);
+    if (userTeams.length > 0 && !selectedTeam) {
+      setSelectedTeam(userTeams[0]);
+    }
+  }, [selectedTeam]);
+
   useEffect(() => {
+    if (user) {
+      fetchUserTeams(user.uid);
+    } else {
+      setTeams([]);
+      setSelectedTeam(null);
+    }
+  }, [user, fetchUserTeams]);
+
+  // Fetch drills from Firestore (restore teamId filter)
+  useEffect(() => {
+    if (!selectedTeam) {
+      setDrills([]);
+      return;
+    }
     const fetchDrills = async () => {
       setDrillLoading(true);
-      const querySnapshot = await getDocs(collection(db, 'drills'));
+      const q = query(collection(db, 'drills'), where('teamId', '==', selectedTeam.id));
+      const querySnapshot = await getDocs(q);
       const drillsList = [];
       querySnapshot.forEach((doc) => {
         drillsList.push({ id: doc.id, ...doc.data() });
@@ -376,30 +367,33 @@ function App() {
       setDrillLoading(false);
     };
     fetchDrills();
-  }, []);
+  }, [selectedTeam]);
 
   // Load session for selected date from Firestore
   useEffect(() => {
+    if (!selectedTeam) {
+      setSessions({});
+      return;
+    }
     const fetchSession = async () => {
       setLoading(true);
-      const docRef = doc(collection(db, 'sessions'), date.toDateString());
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setSessions((prev) => ({ ...prev, [date.toDateString()]: docSnap.data() }));
-        setSelectedDrillIds(docSnap.data().drillIds || []);
+      const q = query(collection(db, 'sessions'), where('teamId', '==', selectedTeam.id), where('date', '==', date.toDateString()));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        setSessions((prev) => ({ ...prev, [date.toDateString()]: { ...docSnap.data(), id: docSnap.id } }));
       } else {
         setSessions((prev) => {
           const newSessions = { ...prev };
           delete newSessions[date.toDateString()];
           return newSessions;
         });
-        setSelectedDrillIds([]);
       }
       setLoading(false);
     };
     fetchSession();
     // eslint-disable-next-line
-  }, [date]);
+  }, [date, selectedTeam]);
 
   // Sync form and drill selection with session data for the selected date
   useEffect(() => {
@@ -410,10 +404,8 @@ function App() {
         start: sessionData.start || '',
         end: sessionData.end || '',
       });
-      setSelectedDrillIds(sessionData.drillIds || []);
     } else {
       setForm({ location: '', start: '', end: '' });
-      setSelectedDrillIds([]);
     }
   }, [date, sessions]);
 
@@ -432,9 +424,23 @@ function App() {
     fetchTemplates();
   }, []);
 
+  const [showSessionDetails, setShowSessionDetails] = useState(false);
+
   const handleDateClick = (value) => {
     setDate(value);
-    setModalOpen(true);
+    const sessionForDate = sessions[value.toDateString()];
+    if (sessionForDate) {
+      setShowSessionDetails(true);
+      setTimeout(() => {
+        if (sessionInfoRef.current) {
+          sessionInfoRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      setModalOpen(false);
+    } else {
+      setModalOpen(true);
+      setShowSessionDetails(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -457,6 +463,8 @@ function App() {
           return (parseInt(e[0], 10) * 60 + parseInt(e[1], 10)) - (parseInt(s[0], 10) * 60 + parseInt(s[1], 10));
         })() : 0,
         drillAssignments: [],
+        teamId: selectedTeam.id,
+        date: date.toDateString(),
       };
     }
     const newAssignments = [
@@ -464,11 +472,28 @@ function App() {
       { id: drillId, note: '' },
     ];
     const updatedSession = { ...currentSession, drillAssignments: newAssignments };
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), updatedSession);
-    setSessions((prev) => ({
-      ...prev,
-      [date.toDateString()]: updatedSession,
-    }));
+    let sessionDocId = currentSession.id;
+    if (!sessionDocId) {
+      // Find if a session already exists for this team/date
+      const q = query(collection(db, 'sessions'), where('teamId', '==', selectedTeam.id), where('date', '==', date.toDateString()));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        sessionDocId = querySnapshot.docs[0].id;
+      }
+    }
+    if (sessionDocId) {
+      await setDoc(doc(collection(db, 'sessions'), sessionDocId), updatedSession);
+      setSessions((prev) => ({
+        ...prev,
+        [date.toDateString()]: { ...updatedSession, id: sessionDocId },
+      }));
+    } else {
+      const docRef = await addDoc(collection(db, 'sessions'), updatedSession);
+      setSessions((prev) => ({
+        ...prev,
+        [date.toDateString()]: { ...updatedSession, id: docRef.id },
+      }));
+    }
   };
 
   // Save session (merge form values with existing session, keep drillAssignments)
@@ -485,13 +510,32 @@ function App() {
       start: form.start,
       end: form.end,
       totalMinutes,
-      // keep drillAssignments as is
+      drillAssignments: (session && session.drillAssignments) ? session.drillAssignments : [],
+      teamId: selectedTeam.id,
+      date: date.toDateString(),
     };
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), updatedSession);
-    setSessions({
-      ...sessions,
-      [date.toDateString()]: updatedSession,
-    });
+    let sessionDocId = session && session.id;
+    if (!sessionDocId) {
+      // Find if a session already exists for this team/date
+      const q = query(collection(db, 'sessions'), where('teamId', '==', selectedTeam.id), where('date', '==', date.toDateString()));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        sessionDocId = querySnapshot.docs[0].id;
+      }
+    }
+    if (sessionDocId) {
+      await setDoc(doc(collection(db, 'sessions'), sessionDocId), updatedSession);
+      setSessions((prev) => ({
+        ...prev,
+        [date.toDateString()]: { ...updatedSession, id: sessionDocId },
+      }));
+    } else {
+      const docRef = await addDoc(collection(db, 'sessions'), updatedSession);
+      setSessions((prev) => ({
+        ...prev,
+        [date.toDateString()]: { ...updatedSession, id: docRef.id },
+      }));
+    }
     setModalOpen(false);
   };
 
@@ -535,11 +579,17 @@ function App() {
 
   // Apply a template to the current date
   const handleApplyTemplate = async (template) => {
-    const sessionData = { ...template.session };
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), sessionData);
+    // Prepare session data for the selected team and date
+    const sessionData = {
+      ...template.session,
+      teamId: selectedTeam.id,
+      date: date.toDateString(),
+    };
+    // Add as a new document in Firestore
+    const docRef = await addDoc(collection(db, 'sessions'), sessionData);
     setSessions((prev) => ({
       ...prev,
-      [date.toDateString()]: sessionData,
+      [date.toDateString()]: { ...sessionData, id: docRef.id },
     }));
   };
 
@@ -565,10 +615,10 @@ function App() {
     const newAssignments = [...(session.drillAssignments || [])];
     newAssignments.splice(idx, 1);
     const updatedSession = { ...session, drillAssignments: newAssignments };
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), updatedSession);
+    await setDoc(doc(collection(db, 'sessions'), session.id), updatedSession);
     setSessions((prev) => ({
       ...prev,
-      [date.toDateString()]: updatedSession,
+      [date.toDateString()]: { ...updatedSession, id: session.id },
     }));
   };
 
@@ -577,10 +627,10 @@ function App() {
     const newAssignments = [...(session.drillAssignments || [])];
     newAssignments[idx] = { ...newAssignments[idx], note };
     const updatedSession = { ...session, drillAssignments: newAssignments };
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), updatedSession);
+    await setDoc(doc(collection(db, 'sessions'), session.id), updatedSession);
     setSessions((prev) => ({
       ...prev,
-      [date.toDateString()]: updatedSession,
+      [date.toDateString()]: { ...updatedSession, id: session.id },
     }));
   };
 
@@ -588,10 +638,10 @@ function App() {
   const handleReorderDrills = async (newOrderIdxs) => {
     const newAssignments = newOrderIdxs.map(idx => session.drillAssignments[idx]);
     const updatedSession = { ...session, drillAssignments: newAssignments };
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), updatedSession);
+    await setDoc(doc(collection(db, 'sessions'), session.id), updatedSession);
     setSessions((prev) => ({
       ...prev,
-      [date.toDateString()]: updatedSession,
+      [date.toDateString()]: { ...updatedSession, id: session.id },
     }));
   };
 
@@ -600,10 +650,10 @@ function App() {
     const newAssignments = [...(session.drillAssignments || [])];
     newAssignments[idx] = { ...newAssignments[idx], customDuration: parseInt(minutes, 10) };
     const updatedSession = { ...session, drillAssignments: newAssignments };
-    await setDoc(doc(collection(db, 'sessions'), date.toDateString()), updatedSession);
+    await setDoc(doc(collection(db, 'sessions'), session.id), updatedSession);
     setSessions((prev) => ({
       ...prev,
-      [date.toDateString()]: updatedSession,
+      [date.toDateString()]: { ...updatedSession, id: session.id },
     }));
     setEditingDurationKey(null);
     setDurationInput('');
@@ -621,51 +671,317 @@ function App() {
     if (view === 'month' && sessions[calDate.toDateString()]) {
       const session = sessions[calDate.toDateString()];
       const total = session.totalMinutes || 0;
-      let left = 0;
+      let planned = 0;
       if (session.drillAssignments && Array.isArray(session.drillAssignments)) {
-        const planned = session.drillAssignments.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
-        left = total - planned;
-      } else {
-        left = total;
+        planned = session.drillAssignments.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
       }
-      let percent = 1;
-      if (total > 0) {
-        percent = Math.max(0, Math.min(1, 1 - left / total));
+      // Only show icon if session has drills and total > 0
+      if (planned > 0 && total > 0) {
+        let percent;
+        if (planned >= total) {
+          percent = 1;
+        } else {
+          percent = planned / total;
+          if (percent < 0) percent = 0;
+        }
+        return <SoccerBallImageProgress percent={percent} />;
       }
-      if (left <= 0) percent = 1;
-      return <SoccerBallImageProgress percent={percent} />;
     }
     return null;
   };
 
+  const handleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      alert('Sign in failed: ' + err.message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      alert('Sign out failed: ' + err.message);
+    }
+  };
+
+  const clearDrillListFilters = () => {
+    setDrillListNameFilter('');
+    setDrillListCategoryFilter('');
+    setDrillListRankFilter(1);
+  };
+
+  const filteredDrillList = drills.filter(drill => {
+    const categoryMatch = !drillListCategoryFilter || (drill.categories && drill.categories.includes(drillListCategoryFilter));
+    const rankMatch = (drill.rank || 3) >= drillListRankFilter;
+    const nameMatch = !drillListNameFilter || (drill.name && drill.name.toLowerCase().includes(drillListNameFilter.toLowerCase()));
+    return categoryMatch && rankMatch && nameMatch;
+  });
+  const filteredDrills = drills.filter(drill => {
+    const categoryMatch = !drillCategoryFilter || (drill.categories && drill.categories.includes(drillCategoryFilter));
+    const rankMatch = (drill.rank || 3) >= drillRankFilter;
+    const nameMatch = !drillNameFilter || (drill.name && drill.name.toLowerCase().includes(drillNameFilter.toLowerCase()));
+    return categoryMatch && rankMatch && nameMatch;
+  });
+
+  // Restore handleCreateTeam and handleJoinTeam at the top level
+  const handleCreateTeam = async () => {
+    if (!teamNameInput || !user) return;
+    setTeamLoading(true);
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newTeam = {
+      name: teamNameInput,
+      createdBy: user.uid,
+      members: [user.uid],
+      inviteCode,
+      createdAt: new Date().toISOString(),
+    };
+    const docRef = await addDoc(teamsCollection, newTeam);
+    setTeams([...teams, { id: docRef.id, ...newTeam }]);
+    setSelectedTeam({ id: docRef.id, ...newTeam });
+    setTeamModalOpen(false);
+    setTeamNameInput('');
+    setTeamLoading(false);
+  };
+
+  const handleJoinTeam = async () => {
+    if (!inviteCodeInput || !user) return;
+    setTeamLoading(true);
+    const q = query(teamsCollection, where('inviteCode', '==', inviteCodeInput.toUpperCase()));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      alert('No team found with that invite code.');
+      setTeamLoading(false);
+      return;
+    }
+    const teamDoc = snapshot.docs[0];
+    const teamData = teamDoc.data();
+    if (!teamData.members.includes(user.uid)) {
+      await updateDoc(doc(teamsCollection, teamDoc.id), {
+        members: arrayUnion(user.uid),
+      });
+    }
+    setTeams([...teams, { id: teamDoc.id, ...teamData, members: [...teamData.members, user.uid] }]);
+    setSelectedTeam({ id: teamDoc.id, ...teamData, members: [...teamData.members, user.uid] });
+    setJoinModalOpen(false);
+    setInviteCodeInput('');
+    setTeamLoading(false);
+  };
+
+  // Firebase authentication listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Debug: Log loaded drills and selectedTeam
+  useEffect(() => {
+    if (selectedTeam) {
+      console.log('Selected team ID:', selectedTeam.id);
+    }
+    if (drills.length === 0) {
+      console.log('No drills loaded for team:', selectedTeam?.id);
+    } else {
+      console.log('Loaded drills:', drills);
+    }
+  }, [drills, selectedTeam]);
+
+  if (authLoading) {
+    return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
+  }
+  if (!user) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <h2>Soccer Planner Login</h2>
+        <button onClick={handleSignIn} style={{ padding: '12px 32px', borderRadius: 8, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.2rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)' }}>
+          Sign in with Google
+        </button>
+      </div>
+    );
+  }
+
+  // Team selection modal if no team or on demand
+  if (!selectedTeam && !teamLoading) {
+    return (
+      <div className="modal-backdrop">
+        <div className="modal" style={{ minWidth: 340 }}>
+          <h2>Team Setup</h2>
+          <p>To use Soccer Planner, you must create or join a team.</p>
+          <button onClick={() => setTeamModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Create Team</button>
+          <button onClick={() => setJoinModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Join Team</button>
+          {teamModalOpen && (
+            <div className="modal-backdrop">
+              <div className="modal">
+                <h3>Create a Team</h3>
+                <input type="text" value={teamNameInput} onChange={e => setTeamNameInput(e.target.value)} placeholder="Team Name" style={{ width: '100%', marginBottom: 12 }} />
+                <button onClick={handleCreateTeam} disabled={teamLoading || !teamNameInput} style={{ marginRight: 8 }}>Create</button>
+                <button onClick={() => setTeamModalOpen(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+          {joinModalOpen && (
+            <div className="modal-backdrop">
+              <div className="modal">
+                <h3>Join a Team</h3>
+                <input type="text" value={inviteCodeInput} onChange={e => setInviteCodeInput(e.target.value)} placeholder="Invite Code" style={{ width: '100%', marginBottom: 12 }} />
+                <button onClick={handleJoinTeam} disabled={teamLoading || !inviteCodeInput} style={{ marginRight: 8 }}>Join</button>
+                <button onClick={() => setJoinModalOpen(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="App">
-      <div className="calendar-container">
-        <Calendar
-          onChange={setDate}
-          value={date}
-          onClickDay={handleDateClick}
-          tileContent={calendarTileContent}
-        />
+    <div className="App" style={{ minHeight: '100vh', background: '#2d313a', display: 'flex', flexDirection: 'column' }}>
+      {/* Modernized Header */}
+      <header style={{
+        width: '100%',
+        background: 'rgba(25, 118, 210, 0.04)',
+        padding: '0 0 0 0',
+        boxShadow: '0 2px 8px rgba(25, 118, 210, 0.04)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: 72,
+        zIndex: 10,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 32 }}>
+          <span style={{
+            fontWeight: 'bold',
+            fontSize: '1.35em',
+            marginRight: 20,
+            color: '#1976d2',
+            background: 'rgba(25, 118, 210, 0.08)',
+            borderRadius: 8,
+            padding: '6px 18px',
+            letterSpacing: '0.5px',
+            boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)'
+          }}>
+            Team: {selectedTeam ? selectedTeam.name : ''}
+          </span>
+          <button onClick={() => setMembersModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Team Members</button>
+          <button onClick={() => setTeamModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Create Team</button>
+          <button onClick={() => setJoinModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Join Team</button>
+          {teams.length > 1 && (
+            <select value={selectedTeam ? selectedTeam.id : ''} onChange={e => setSelectedTeam(teams.find(t => t.id === e.target.value))} style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #1976d2', fontWeight: 'bold', fontSize: '1em' }}>
+              {teams.map(team => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 32 }}>
+          <span style={{
+            marginRight: 20,
+            fontWeight: 'bold',
+            fontSize: '1.15em',
+            color: '#1976d2',
+            background: 'rgba(25, 118, 210, 0.08)',
+            borderRadius: 8,
+            padding: '6px 18px',
+            letterSpacing: '0.5px',
+            boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)'
+          }}>
+            Signed in as {user.displayName || user.email}
+          </span>
+          <button onClick={handleSignOut} style={{ padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}>
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 0,
+        position: 'relative',
+        width: '100%',
+        height: 'calc(100vh - 72px - 96px)', // header + bottom bar
+      }}>
+        {!showSessionDetails && (
+          <div className="calendar-container" style={{
+            background: '#fff',
+            borderRadius: 16,
+            boxShadow: '0 4px 24px rgba(25, 118, 210, 0.10)',
+            padding: 32,
+            maxWidth: 600,
+            minWidth: 340,
+            minHeight: 420,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Calendar
+              onChange={setDate}
+              value={date}
+              onClickDay={handleDateClick}
+              tileContent={calendarTileContent}
+            />
+          </div>
+        )}
+      </main>
+
+      {/* Fixed Bottom Bar for Actions */}
+      <div style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(25, 118, 210, 0.04)',
+        padding: '24px 0 24px 0',
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 32,
+        zIndex: 20,
+        boxShadow: '0 -2px 8px rgba(25, 118, 210, 0.04)'
+      }}>
+        <button
+          onClick={() => setDrillSectionOpen(true)}
+          style={{
+            padding: '12px 32px',
+            borderRadius: 8,
+            border: 'none',
+            background: '#1976d2',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '1.2rem',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
+            transition: 'background 0.2s, color 0.2s',
+          }}
+        >
+          Drills/Exercises
+        </button>
+        <button
+          onClick={() => setTemplateSectionOpen(true)}
+          style={{
+            padding: '12px 32px',
+            borderRadius: 8,
+            border: 'none',
+            background: '#1976d2',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: '1.2rem',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
+            transition: 'background 0.2s, color 0.2s',
+          }}
+        >
+          Previous Practice Sessions
+        </button>
       </div>
       {/* Drills/Exercises Modal Trigger */}
-      <button
-        onClick={() => setDrillSectionOpen(true)}
-        style={{
-          margin: '2rem 0',
-          padding: '12px 32px',
-          borderRadius: 8,
-          border: 'none',
-          background: '#1976d2',
-          color: '#fff',
-          fontWeight: 'bold',
-          fontSize: '1.2rem',
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
-        }}
-      >
-        Drills/Exercises
-      </button>
       {drillSectionOpen && (
         <div className="modal-backdrop">
           <div className="modal">
@@ -780,6 +1096,13 @@ function App() {
       {modalOpen && (
         <div className="modal-backdrop">
           <div className="modal">
+            <button
+              onClick={() => setModalOpen(false)}
+              style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
+              aria-label="Close session modal"
+            >
+              ×
+            </button>
             <h2>Practice Session for {date.toDateString()}</h2>
             <form onSubmit={handleSubmit}>
               <label>
@@ -917,7 +1240,14 @@ function App() {
                   const endMinutes = parseInt(end[0], 10) * 60 + parseInt(end[1], 10);
                   return endMinutes - startMinutes;
                 })()} min</div>
-                <div><strong>Planned Drill Time:</strong> {drills.filter(d => selectedDrillIds.includes(d.id)).reduce((sum, d) => sum + (d.duration || 0), 0)} min</div>
+                <div><strong>Planned Drill Time:</strong> {(() => {
+                  const currentSession = sessions[date.toDateString()];
+                  if (!currentSession || !currentSession.drillAssignments) return 0;
+                  return currentSession.drillAssignments.reduce((sum, a) => {
+                    const drill = drills.find(d => d.id === a.id);
+                    return sum + (a.customDuration != null ? a.customDuration : (drill ? drill.duration : 0) || 0);
+                  }, 0);
+                })()} min</div>
                 <div><strong>Time Remaining:</strong> {(() => {
                   if (!form.start || !form.end) return 0;
                   const start = form.start.split(":");
@@ -925,7 +1255,11 @@ function App() {
                   const startMinutes = parseInt(start[0], 10) * 60 + parseInt(start[1], 10);
                   const endMinutes = parseInt(end[0], 10) * 60 + parseInt(end[1], 10);
                   const total = endMinutes - startMinutes;
-                  const planned = drills.filter(d => selectedDrillIds.includes(d.id)).reduce((sum, d) => sum + (d.duration || 0), 0);
+                  const currentSession = sessions[date.toDateString()];
+                  const planned = currentSession && currentSession.drillAssignments ? currentSession.drillAssignments.reduce((sum, a) => {
+                    const drill = drills.find(d => d.id === a.id);
+                    return sum + (a.customDuration != null ? a.customDuration : (drill ? drill.duration : 0) || 0);
+                  }, 0) : 0;
                   return total - planned;
                 })()} min</div>
               </div>
@@ -939,59 +1273,105 @@ function App() {
       )}
       {loading ? (
         <div className="session-info"><em>Loading session...</em></div>
-      ) : session && (
-        <div className="session-info">
-          <h3>Session Details for {date.toDateString()}</h3>
-          <p><strong>Location:</strong> {session.location}</p>
-          <p><strong>Start Time:</strong> {formatTime12h(session.start)}</p>
-          <p><strong>End Time:</strong> {formatTime12h(session.end)}</p>
-          <p><strong>Total Minutes:</strong> {session.totalMinutes}</p>
-          <h4>Assigned Drills</h4>
-          <DraggableDrillPills
-            assignedDrills={assignedDrills}
-            onReorder={async (newOrderIdxs) => {
-              await handleReorderDrills(newOrderIdxs);
+      ) : session && showSessionDetails && !modalOpen && (
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 'calc(100vh - 72px - 96px)', // header + bottom bar
+            width: '100%',
+            position: 'relative',
+            paddingBottom: 160, // extra space for bottom bar
+          }}
+        >
+          <div
+            className="session-info"
+            ref={sessionInfoRef}
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              boxShadow: '0 4px 24px rgba(25, 118, 210, 0.10)',
+              padding: 32,
+              maxWidth: 600,
+              minWidth: 320,
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              position: 'relative',
+              width: '100%',
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
             }}
-            onRemove={async (removeIdx) => {
-              await handleRemoveDrillInstance(removeIdx);
-            }}
-            sessionStartTime={session.start}
-            getDrillNote={(_, idx) => assignedDrills[idx]?.note || ''}
-            editingNoteDrillId={editingNoteDrillId}
-            setEditingNoteDrillId={setEditingNoteDrillId}
-            noteInput={noteInput}
-            setNoteInput={setNoteInput}
-            handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
-            editingDurationKey={editingDurationKey}
-            setEditingDurationKey={setEditingDurationKey}
-            durationInput={durationInput}
-            setDurationInput={setDurationInput}
-            handleSaveDrillDuration={handleSaveDrillDuration}
-          />
-          <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
-          <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
-          <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
-          <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
+          >
+            <button
+              onClick={() => setShowSessionDetails(false)}
+              style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
+              aria-label="Close session details"
+            >
+              ×
+            </button>
+            <h3>Session Details for {date.toDateString()}</h3>
+            <p><strong>Location:</strong> {session.location}</p>
+            <p><strong>Start Time:</strong> {formatTime12h(session.start)}</p>
+            <p><strong>End Time:</strong> {formatTime12h(session.end)}</p>
+            <p><strong>Total Minutes:</strong> {session.totalMinutes}</p>
+            <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
+            <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
+            <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Assigned Drills
+              <button
+                onClick={() => { setModalOpen(true); setShowSessionDetails(false); }}
+                style={{ marginLeft: 8, padding: '4px 16px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95em', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
+                onMouseOver={e => { e.target.style.background = '#1251a3'; }}
+                onMouseOut={e => { e.target.style.background = '#1976d2'; }}
+              >
+                Add Drills
+              </button>
+            </h4>
+            <DraggableDrillPills
+              assignedDrills={assignedDrills}
+              onReorder={async (newOrderIdxs) => {
+                await handleReorderDrills(newOrderIdxs);
+              }}
+              onRemove={async (removeIdx) => {
+                await handleRemoveDrillInstance(removeIdx);
+              }}
+              sessionStartTime={session.start}
+              getDrillNote={(_, idx) => assignedDrills[idx]?.note || ''}
+              editingNoteDrillId={editingNoteDrillId}
+              setEditingNoteDrillId={setEditingNoteDrillId}
+              noteInput={noteInput}
+              setNoteInput={setNoteInput}
+              handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
+              editingDurationKey={editingDurationKey}
+              setEditingDurationKey={setEditingDurationKey}
+              durationInput={durationInput}
+              setDurationInput={setDurationInput}
+              handleSaveDrillDuration={handleSaveDrillDuration}
+            />
+            {/* Add summary at the bottom */}
+            <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginTop: 16, fontSize: '1rem' }}>
+              <div><strong>Total Minutes:</strong> {session.totalMinutes}</div>
+              <div><strong>Total Drill Time:</strong> {totalDrillTime} min</div>
+              <div><strong>Time Left in Session:</strong> {timeLeft} min</div>
+            </div>
+            <button
+              onClick={() => setShowSessionDetails(false)}
+              style={{ marginTop: 16, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
+              onMouseOver={e => { e.target.style.background = '#1251a3'; }}
+              onMouseOut={e => { e.target.style.background = '#1976d2'; }}
+            >
+              Save/Close
+            </button>
+            <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
+            <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
+          </div>
         </div>
       )}
       {/* Previous Practice Sessions Modal Trigger */}
-      <button
-        onClick={() => setTemplateSectionOpen(true)}
-        style={{
-          margin: '2rem 0',
-          padding: '12px 32px',
-          borderRadius: 8,
-          border: 'none',
-          background: '#1976d2',
-          color: '#fff',
-          fontWeight: 'bold',
-          fontSize: '1.2rem',
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
-        }}
-      >
-        Previous Practice Sessions
-      </button>
       {templateSectionOpen && (
         <div className="modal-backdrop">
           <div className="modal">
@@ -1065,10 +1445,11 @@ function App() {
                 link: drillForm.link,
                 categories: drillForm.categories,
                 rank: drillForm.rank,
+                teamId: selectedTeam.id,
               };
-              if (drillForm.name) {
-                await setDoc(doc(db, 'drills', drillForm.name), newDrill);
-                setDrills(drills.map(d => d.name === drillForm.name ? { ...d, ...newDrill } : d));
+              if (drillForm.name && drillForm.id) {
+                await setDoc(doc(db, 'drills', drillForm.id), newDrill);
+                setDrills(drills.map(d => d.id === drillForm.id ? { ...d, ...newDrill, id: drillForm.id } : d));
               } else {
                 const docRef = await addDoc(collection(db, 'drills'), newDrill);
                 setDrills([...drills, { id: docRef.id, ...newDrill }]);
@@ -1162,6 +1543,43 @@ function App() {
       )}
     </div>
   );
+}
+
+// Increase the calendar month/year label by 30%
+const calendarLabelStyle = document.createElement('style');
+calendarLabelStyle.innerHTML = `
+  .react-calendar__navigation__label__labelText {
+    font-size: 2.25em !important;
+  }
+`;
+if (!document.head.querySelector('#calendar-label-style')) {
+  calendarLabelStyle.id = 'calendar-label-style';
+  document.head.appendChild(calendarLabelStyle);
+}
+
+// Style the calendar navigation arrows to be more obvious
+const calendarArrowStyle = document.createElement('style');
+calendarArrowStyle.innerHTML = `
+  .react-calendar__navigation__arrow {
+    font-size: 1em !important;
+    color: #1976d2 !important;
+    font-weight: bold !important;
+    background: #e3f0fb !important;
+    border-radius: 50% !important;
+    width: 1.1em !important;
+    height: 1.1em !important;
+    transition: background 0.2s, color 0.2s;
+    margin: 0 0.2em;
+  }
+  .react-calendar__navigation__arrow:hover {
+    background: #1976d2 !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+  }
+`;
+if (!document.head.querySelector('#calendar-arrow-style')) {
+  calendarArrowStyle.id = 'calendar-arrow-style';
+  document.head.appendChild(calendarArrowStyle);
 }
 
 export default App;
