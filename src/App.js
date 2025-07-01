@@ -1065,8 +1065,26 @@ function App() {
       </div>
       {/* Drills/Exercises Modal Trigger */}
       {drillSectionOpen && (
-        <div className="modal-backdrop">
-          <div className="modal">
+        <div className="modal-backdrop" style={{ zIndex: 11000 }}>
+          <div
+            className="modal"
+            style={{
+              zIndex: 11001,
+              maxWidth: 800,
+              minWidth: 420,
+              minHeight: 500,
+              maxHeight: '85vh',
+              marginTop: 90, // push below header
+              boxShadow: '0 8px 32px rgba(25, 118, 210, 0.18)',
+              overflowY: 'auto',
+              padding: 32,
+              background: '#fff',
+              borderRadius: 18,
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0 }}>Drills/Exercises</h2>
               <button onClick={() => setDrillSectionOpen(false)} style={{ fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
