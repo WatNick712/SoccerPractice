@@ -303,7 +303,6 @@ function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ location: '', start: '', end: '' });
   const [sessions, setSessions] = useState({});
-  const [loading, setLoading] = useState(false);
   const [drills, setDrills] = useState([]);
   const [drillLoading, setDrillLoading] = useState(false);
   const [editingNoteDrillId, setEditingNoteDrillId] = useState(null);
@@ -1353,9 +1352,7 @@ function App() {
           </div>
         </div>
       )}
-      {loading ? (
-        <div className="session-info"><em>Loading session...</em></div>
-      ) : session && showSessionDetails && !modalOpen && (
+      {session && showSessionDetails && !modalOpen && (
         <div
           style={{
             flex: 1,
