@@ -89,8 +89,16 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
           </span>
         ) : (
           <span style={{ marginTop: 4, display: 'inline-block', fontWeight: 'normal', fontSize: '0.95em' }}>
-            {note && <span>📝 {note} </span>}
-            <button onClick={() => { setEditingNoteDrillId(idx); setNoteInput(note || ''); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>✏️</button>
+            {note && (
+              <span>
+                📝 {note}
+                <button onClick={() => { setEditingNoteDrillId(idx); setNoteInput(note || ''); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>✏️</button>
+                <button onClick={() => handleSaveDrillNote('')} style={{ fontSize: '0.95em', marginLeft: 4 }}>🗑️</button>
+              </span>
+            )}
+            {!note && (
+              <button onClick={() => { setEditingNoteDrillId(idx); setNoteInput(note || ''); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>✏️</button>
+            )}
           </span>
         )}
         {isEditingDuration ? (
@@ -934,154 +942,257 @@ function App() {
   return (
     <div className="App" style={{ minHeight: '100vh', background: '#2d313a', display: 'flex', flexDirection: 'column' }}>
       {teamModals}
-      {/* Modernized Header */}
-      <header style={{
-        width: '100%',
-        background: 'rgba(25, 118, 210, 0.04)',
-        padding: '0 0 0 0',
-        boxShadow: '0 2px 8px rgba(25, 118, 210, 0.04)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        minHeight: 72,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 32 }}>
-          <span style={{
-            fontWeight: 'bold',
-            fontSize: '1.35em',
-            marginRight: 20,
-            color: '#1976d2',
-            background: 'rgba(25, 118, 210, 0.08)',
-            borderRadius: 8,
-            padding: '6px 18px',
-            letterSpacing: '0.5px',
-            boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)'
-          }}>
-            Team: {selectedTeam ? selectedTeam.name : ''}
-          </span>
-          <button onClick={() => setMembersModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Team Members</button>
-          <button onClick={() => setTeamModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Create Team</button>
-          <button onClick={() => setJoinModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Join Team</button>
-          {teams.length > 1 && (
-            <select value={selectedTeam ? selectedTeam.id : ''} onChange={e => setSelectedTeam(teams.find(t => t.id === e.target.value))} style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #1976d2', fontWeight: 'bold', fontSize: '1em' }}>
-              {teams.map(team => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
-            </select>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 32 }}>
-          <span style={{
-            marginRight: 20,
-            fontWeight: 'bold',
-            fontSize: '1.15em',
-            color: '#1976d2',
-            background: 'rgba(25, 118, 210, 0.08)',
-            borderRadius: 8,
-            padding: '6px 18px',
-            letterSpacing: '0.5px',
-            boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)'
-          }}>
-            Signed in as {user.displayName || user.email}
-          </span>
-          <button onClick={handleSignOut} style={{ padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}>
-            Sign Out
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 0,
-        position: 'relative',
-        width: '100%',
-        height: 'calc(100vh - 72px - 96px)', // header + bottom bar
-        marginTop: 72,
-      }}>
-        {!showSessionDetails && (
-          <div className="calendar-container" style={{
-            background: '#fff',
-            borderRadius: 16,
-            boxShadow: '0 4px 24px rgba(25, 118, 210, 0.10)',
-            padding: 32,
-            maxWidth: 600,
-            minWidth: 340,
-            minHeight: 420,
+      {/* Only show session details panel when open, hide all other UI */}
+      {session && showSessionDetails && !modalOpen ? (
+        <div
+          style={{
+            minHeight: '100vh',
+            width: '100vw',
+            background: '#f7f7f7',
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-          }}>
-        <Calendar
-          key={Object.keys(sessions).join(',')}
-          onChange={setDate}
-          value={date}
-          onClickDay={handleDateClick}
-          tileContent={calendarTileContent}
-              onActiveStartDateChange={({ activeStartDate }) => setCalendarMonth(activeStartDate)}
-        />
-      </div>
-        )}
-      </main>
-
-      {/* Fixed Bottom Bar for Actions */}
-      <div style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(25, 118, 210, 0.04)',
-        padding: '24px 0 24px 0',
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 32,
-        zIndex: 20,
-        boxShadow: '0 -2px 8px rgba(25, 118, 210, 0.04)'
-      }}>
-      <button
-        onClick={() => setDrillSectionOpen(true)}
-        style={{
-          padding: '12px 32px',
-          borderRadius: 8,
-          border: 'none',
-          background: '#1976d2',
-          color: '#fff',
-          fontWeight: 'bold',
-          fontSize: '1.2rem',
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
-            transition: 'background 0.2s, color 0.2s',
-        }}
-      >
-        Drills/Exercises
-      </button>
-        <button
-          onClick={() => setTemplateSectionOpen(true)}
-          style={{
-            padding: '12px 32px',
-            borderRadius: 8,
-            border: 'none',
-            background: '#1976d2',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: '1.2rem',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
-            transition: 'background 0.2s, color 0.2s',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            zIndex: 20000,
           }}
         >
-          Previous Practice Sessions
-        </button>
-      </div>
+          <div
+            className="session-info"
+            ref={sessionInfoRef}
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              boxShadow: '0 4px 24px rgba(25, 118, 210, 0.10)',
+              padding: 32,
+              maxWidth: 1200,
+              minWidth: 600,
+              width: '90vw',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              position: 'relative',
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              paddingBottom: 180, // extra space for bottom bar and action buttons
+            }}
+          >
+            <button
+              onClick={() => setShowSessionDetails(false)}
+              style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
+              aria-label="Close session details"
+            >
+              ×
+            </button>
+            <h3>Session Details for {date.toDateString()}</h3>
+            <p><strong>Location:</strong> {session.location}</p>
+            <p><strong>Start Time:</strong> {formatTime12h(session.start)}</p>
+            <p><strong>End Time:</strong> {formatTime12h(session.end)}</p>
+            <p><strong>Total Minutes:</strong> {session.totalMinutes}</p>
+            <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
+            <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
+            <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Assigned Drills
+              <button
+                onClick={() => { setModalOpen(true); setShowSessionDetails(false); }}
+                style={{ marginLeft: 8, padding: '4px 16px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95em', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
+                onMouseOver={e => { e.target.style.background = '#1251a3'; }}
+                onMouseOut={e => { e.target.style.background = '#1976d2'; }}
+              >
+                Add Drills
+              </button>
+            </h4>
+            <DraggableDrillPills
+              assignedDrills={assignedDrills}
+              onReorder={handleReorderDrills}
+              onRemove={async (removeIdx) => {
+                await handleRemoveDrillInstance(removeIdx);
+              }}
+              sessionStartTime={session.start}
+              getDrillNote={(_, idx) => assignedDrills[idx]?.note || ''}
+              editingNoteDrillId={editingNoteDrillId}
+              setEditingNoteDrillId={setEditingNoteDrillId}
+              noteInput={noteInput}
+              setNoteInput={setNoteInput}
+              handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
+              editingDurationKey={editingDurationKey}
+              setEditingDurationKey={setEditingDurationKey}
+              durationInput={durationInput}
+              setDurationInput={setDurationInput}
+              handleSaveDrillDuration={handleSaveDrillDuration}
+            />
+            {/* Add summary at the bottom */}
+            <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginTop: 16, fontSize: '1rem' }}>
+              <div><strong>Total Minutes:</strong> {session.totalMinutes}</div>
+              <div><strong>Total Drill Time:</strong> {totalDrillTime} min</div>
+              <div><strong>Time Left in Session:</strong> {timeLeft} min</div>
+            </div>
+            <button
+              onClick={() => setShowSessionDetails(false)}
+              style={{ marginTop: 16, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
+              onMouseOver={e => { e.target.style.background = '#1251a3'; }}
+              onMouseOut={e => { e.target.style.background = '#1976d2'; }}
+            >
+              Save/Close
+            </button>
+            <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
+            <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
+            {/* Spacer to prevent overlap with fixed bottom bar */}
+            <div style={{ height: 120 }} />
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Modernized Header */}
+          <header style={{
+            width: '100%',
+            background: 'rgba(25, 118, 210, 0.04)',
+            padding: '0 0 0 0',
+            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.04)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            minHeight: 72,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 32 }}>
+              <span style={{
+                fontWeight: 'bold',
+                fontSize: '1.35em',
+                marginRight: 20,
+                color: '#1976d2',
+                background: 'rgba(25, 118, 210, 0.08)',
+                borderRadius: 8,
+                padding: '6px 18px',
+                letterSpacing: '0.5px',
+                boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)'
+              }}>
+                Team: {selectedTeam ? selectedTeam.name : ''}
+              </span>
+              <button onClick={() => setMembersModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Team Members</button>
+              <button onClick={() => setTeamModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Create Team</button>
+              <button onClick={() => setJoinModalOpen(true)} style={{ marginRight: 8, padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em' }}>Join Team</button>
+              {teams.length > 1 && (
+                <select value={selectedTeam ? selectedTeam.id : ''} onChange={e => setSelectedTeam(teams.find(t => t.id === e.target.value))} style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #1976d2', fontWeight: 'bold', fontSize: '1em' }}>
+                  {teams.map(team => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 32 }}>
+              <span style={{
+                marginRight: 20,
+                fontWeight: 'bold',
+                fontSize: '1.15em',
+                color: '#1976d2',
+                background: 'rgba(25, 118, 210, 0.08)',
+                borderRadius: 8,
+                padding: '6px 18px',
+                letterSpacing: '0.5px',
+                boxShadow: '0 1px 4px rgba(25, 118, 210, 0.08)'
+              }}>
+                Signed in as {user.displayName || user.email}
+              </span>
+              <button onClick={handleSignOut} style={{ padding: '6px 18px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '1em', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}>
+                Sign Out
+              </button>
+            </div>
+          </header>
+          {/* Main Content Area */}
+          <main style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 0,
+            position: 'relative',
+            width: '100%',
+            height: 'calc(100vh - 72px - 96px)', // header + bottom bar
+            marginTop: 72,
+          }}>
+            {!showSessionDetails && (
+              <div className="calendar-container" style={{
+                background: '#fff',
+                borderRadius: 16,
+                boxShadow: '0 4px 24px rgba(25, 118, 210, 0.10)',
+                padding: 32,
+                maxWidth: 600,
+                minWidth: 340,
+                minHeight: 420,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <Calendar
+                key={Object.keys(sessions).join(',')}
+                onChange={setDate}
+                value={date}
+                onClickDay={handleDateClick}
+                tileContent={calendarTileContent}
+                    onActiveStartDateChange={({ activeStartDate }) => setCalendarMonth(activeStartDate)}
+              />
+            </div>
+            )}
+          </main>
+          {/* Fixed Bottom Bar for Actions */}
+          <div style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(25, 118, 210, 0.04)',
+            padding: '24px 0 24px 0',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 32,
+            zIndex: 20,
+            boxShadow: '0 -2px 8px rgba(25, 118, 210, 0.04)'
+          }}>
+          <button
+            onClick={() => setDrillSectionOpen(true)}
+            style={{
+              padding: '12px 32px',
+              borderRadius: 8,
+              border: 'none',
+              background: '#1976d2',
+              color: '#fff',
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
+                transition: 'background 0.2s, color 0.2s',
+            }}
+          >
+            Drills/Exercises
+          </button>
+            <button
+              onClick={() => setTemplateSectionOpen(true)}
+              style={{
+                padding: '12px 32px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#1976d2',
+                color: '#fff',
+                fontWeight: 'bold',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
+                transition: 'background 0.2s, color 0.2s',
+              }}
+            >
+              Previous Practice Sessions
+            </button>
+          </div>
+        </>
+      )}
       {/* Drills/Exercises Modal Trigger */}
       {drillSectionOpen && (
         <div className="modal-backdrop" style={{ zIndex: 11000 }}>
@@ -1360,105 +1471,6 @@ function App() {
                 Cancel
               </button>
             </form>
-          </div>
-        </div>
-      )}
-      {session && showSessionDetails && !modalOpen && (
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: 'calc(100vh - 72px - 96px)', // header + bottom bar
-            width: '100%',
-            position: 'relative',
-            marginTop: 72, // ensure header is not overlapped
-          }}
-        >
-          <div
-            className="session-info"
-            ref={sessionInfoRef}
-            style={{
-              background: '#fff',
-              borderRadius: 16,
-              boxShadow: '0 4px 24px rgba(25, 118, 210, 0.10)',
-              padding: 32,
-              maxWidth: 600,
-              minWidth: 320,
-              maxHeight: '80vh',
-              overflowY: 'auto',
-              position: 'relative',
-              width: '100%',
-              margin: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'stretch',
-              paddingBottom: 180, // extra space for bottom bar and action buttons
-            }}
-          >
-            <button
-              onClick={() => setShowSessionDetails(false)}
-              style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
-              aria-label="Close session details"
-            >
-              ×
-            </button>
-          <h3>Session Details for {date.toDateString()}</h3>
-          <p><strong>Location:</strong> {session.location}</p>
-          <p><strong>Start Time:</strong> {formatTime12h(session.start)}</p>
-          <p><strong>End Time:</strong> {formatTime12h(session.end)}</p>
-          <p><strong>Total Minutes:</strong> {session.totalMinutes}</p>
-            <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
-            <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Assigned Drills
-              <button
-                onClick={() => { setModalOpen(true); setShowSessionDetails(false); }}
-                style={{ marginLeft: 8, padding: '4px 16px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95em', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
-                onMouseOver={e => { e.target.style.background = '#1251a3'; }}
-                onMouseOut={e => { e.target.style.background = '#1976d2'; }}
-              >
-                Add Drills
-              </button>
-            </h4>
-          <DraggableDrillPills
-            assignedDrills={assignedDrills}
-            onReorder={handleReorderDrills}
-            onRemove={async (removeIdx) => {
-              await handleRemoveDrillInstance(removeIdx);
-            }}
-            sessionStartTime={session.start}
-            getDrillNote={(_, idx) => assignedDrills[idx]?.note || ''}
-            editingNoteDrillId={editingNoteDrillId}
-            setEditingNoteDrillId={setEditingNoteDrillId}
-            noteInput={noteInput}
-            setNoteInput={setNoteInput}
-            handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
-            editingDurationKey={editingDurationKey}
-            setEditingDurationKey={setEditingDurationKey}
-            durationInput={durationInput}
-            setDurationInput={setDurationInput}
-            handleSaveDrillDuration={handleSaveDrillDuration}
-          />
-            {/* Add summary at the bottom */}
-            <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginTop: 16, fontSize: '1rem' }}>
-              <div><strong>Total Minutes:</strong> {session.totalMinutes}</div>
-              <div><strong>Total Drill Time:</strong> {totalDrillTime} min</div>
-              <div><strong>Time Left in Session:</strong> {timeLeft} min</div>
-            </div>
-            <button
-              onClick={() => setShowSessionDetails(false)}
-              style={{ marginTop: 16, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
-              onMouseOver={e => { e.target.style.background = '#1251a3'; }}
-              onMouseOut={e => { e.target.style.background = '#1976d2'; }}
-            >
-              Save/Close
-            </button>
-          <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
-          <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
-            {/* Spacer to prevent overlap with fixed bottom bar */}
-            <div style={{ height: 120 }} />
           </div>
         </div>
       )}
