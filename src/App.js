@@ -135,9 +135,10 @@ function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStart
         if (active.id !== over.id) {
           const oldIndex = assignedDrills.findIndex((_, idx) => `${assignedDrills[idx].id}-${idx}` === active.id);
           const newIndex = assignedDrills.findIndex((_, idx) => `${assignedDrills[idx].id}-${idx}` === over.id);
-          const newOrderIdxs = Array.from({ length: assignedDrills.length }, (_, i) => i);
-          newOrderIdxs.splice(newIndex, 0, newOrderIdxs.splice(oldIndex, 1)[0]);
-          onReorder(newOrderIdxs);
+          const newAssignments = [...assignedDrills];
+          const [moved] = newAssignments.splice(oldIndex, 1);
+          newAssignments.splice(newIndex, 0, moved);
+          onReorder(newAssignments);
         }
       }}
     >
@@ -453,7 +454,7 @@ function App() {
       }, 100);
       setModalOpen(false);
     } else {
-      setModalOpen(true);
+    setModalOpen(true);
       setShowSessionDetails(false);
     }
   };
@@ -498,8 +499,8 @@ function App() {
     }
     if (sessionDocId) {
       await setDoc(doc(collection(db, 'sessions'), sessionDocId), updatedSession);
-      setSessions((prev) => ({
-        ...prev,
+    setSessions((prev) => ({
+      ...prev,
         [date.toDateString()]: { ...updatedSession, id: sessionDocId },
       }));
     } else {
@@ -652,9 +653,16 @@ function App() {
   };
 
   // Drag-and-drop reorder for drill instances
-  const handleReorderDrills = async (newOrderIdxs) => {
-    const newAssignments = newOrderIdxs.map(idx => session.drillAssignments[idx]);
-    const updatedSession = { ...session, drillAssignments: newAssignments };
+  const handleReorderDrills = async (newAssignments) => {
+    // Only keep assignment fields (id, note, customDuration, etc.), not the full drill object
+    const cleanedAssignments = newAssignments.map(d => {
+      const { id, note, customDuration } = d;
+      const assignment = { id };
+      if (note !== undefined) assignment.note = note;
+      if (customDuration !== undefined) assignment.customDuration = customDuration;
+      return assignment;
+    });
+    const updatedSession = { ...session, drillAssignments: cleanedAssignments };
     await setDoc(doc(collection(db, 'sessions'), session.id), updatedSession);
     setSessions((prev) => ({
       ...prev,
@@ -685,23 +693,33 @@ function App() {
 
   // Helper for calendar tile content
   const calendarTileContent = ({ date: calDate, view }) => {
+    // Debug: print session keys and current calendar month
+    if (view === 'month' && calDate.getDate() === 1) {
+      console.log('Calendar month:', calendarMonth.toDateString());
+      console.log('Session keys:', Object.keys(sessions));
+    }
     if (view === 'month' && sessions[calDate.toDateString()]) {
       const session = sessions[calDate.toDateString()];
       const total = session.totalMinutes || 0;
       let planned = 0;
       if (session.drillAssignments && Array.isArray(session.drillAssignments)) {
-        planned = session.drillAssignments.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
+        planned = session.drillAssignments.reduce((sum, d) => {
+          const drill = drills.find(dr => dr.id === d.id);
+          const duration = d.customDuration != null ? d.customDuration : (drill ? drill.duration : 0);
+          return sum + (duration || 0);
+        }, 0);
       }
+      console.log('[CAL TILE]', calDate.toDateString(), { session, total, planned });
       // Only show icon if session has drills and total > 0
       if (planned > 0 && total > 0) {
         let percent;
         if (planned >= total) {
           percent = 1;
-        } else {
+      } else {
           percent = planned / total;
           if (percent < 0) percent = 0;
-        }
-        return <SoccerBallImageProgress percent={percent} />;
+      }
+      return <SoccerBallImageProgress percent={percent} />;
       }
     }
     return null;
@@ -830,7 +848,7 @@ function App() {
     return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
   }
   if (!user) {
-    return (
+  return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <h2>Soccer Planner Login</h2>
         <button onClick={handleSignIn} style={{ padding: '12px 32px', borderRadius: 8, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.2rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)' }}>
@@ -1003,14 +1021,15 @@ function App() {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Calendar
-              onChange={setDate}
-              value={date}
-              onClickDay={handleDateClick}
-              tileContent={calendarTileContent}
+        <Calendar
+          key={Object.keys(sessions).join(',')}
+          onChange={setDate}
+          value={date}
+          onClickDay={handleDateClick}
+          tileContent={calendarTileContent}
               onActiveStartDateChange={({ activeStartDate }) => setCalendarMonth(activeStartDate)}
-            />
-          </div>
+        />
+      </div>
         )}
       </main>
 
@@ -1028,23 +1047,23 @@ function App() {
         zIndex: 20,
         boxShadow: '0 -2px 8px rgba(25, 118, 210, 0.04)'
       }}>
-        <button
-          onClick={() => setDrillSectionOpen(true)}
-          style={{
-            padding: '12px 32px',
-            borderRadius: 8,
-            border: 'none',
-            background: '#1976d2',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: '1.2rem',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
+      <button
+        onClick={() => setDrillSectionOpen(true)}
+        style={{
+          padding: '12px 32px',
+          borderRadius: 8,
+          border: 'none',
+          background: '#1976d2',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: '1.2rem',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
             transition: 'background 0.2s, color 0.2s',
-          }}
-        >
-          Drills/Exercises
-        </button>
+        }}
+      >
+        Drills/Exercises
+      </button>
         <button
           onClick={() => setTemplateSectionOpen(true)}
           style={{
@@ -1332,36 +1351,9 @@ function App() {
               </label>
               {/* Session time summary */}
               <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: '1rem' }}>
-                <div><strong>Total Session Time:</strong> {(() => {
-                  if (!form.start || !form.end) return 0;
-                  const start = form.start.split(":");
-                  const end = form.end.split(":");
-                  const startMinutes = parseInt(start[0], 10) * 60 + parseInt(start[1], 10);
-                  const endMinutes = parseInt(end[0], 10) * 60 + parseInt(end[1], 10);
-                  return endMinutes - startMinutes;
-                })()} min</div>
-                <div><strong>Planned Drill Time:</strong> {(() => {
-                  const currentSession = sessions[date.toDateString()];
-                  if (!currentSession || !currentSession.drillAssignments) return 0;
-                  return currentSession.drillAssignments.reduce((sum, a) => {
-                    const drill = drills.find(d => d.id === a.id);
-                    return sum + (a.customDuration != null ? a.customDuration : (drill ? drill.duration : 0) || 0);
-                  }, 0);
-                })()} min</div>
-                <div><strong>Time Remaining:</strong> {(() => {
-                  if (!form.start || !form.end) return 0;
-                  const start = form.start.split(":");
-                  const end = form.end.split(":");
-                  const startMinutes = parseInt(start[0], 10) * 60 + parseInt(start[1], 10);
-                  const endMinutes = parseInt(end[0], 10) * 60 + parseInt(end[1], 10);
-                  const total = endMinutes - startMinutes;
-                  const currentSession = sessions[date.toDateString()];
-                  const planned = currentSession && currentSession.drillAssignments ? currentSession.drillAssignments.reduce((sum, a) => {
-                    const drill = drills.find(d => d.id === a.id);
-                    return sum + (a.customDuration != null ? a.customDuration : (drill ? drill.duration : 0) || 0);
-                  }, 0) : 0;
-                  return total - planned;
-                })()} min</div>
+                <div><strong>Total Session Time:</strong> {session ? session.totalMinutes : 0} min</div>
+                <div><strong>Planned Drill Time:</strong> {totalDrillTime} min</div>
+                <div><strong>Time Remaining:</strong> {timeLeft} min</div>
               </div>
               <button type="submit">Save Session</button>
               <button type="button" onClick={() => setModalOpen(false)} style={{ marginLeft: 8 }}>
@@ -1412,11 +1404,11 @@ function App() {
             >
               ×
             </button>
-            <h3>Session Details for {date.toDateString()}</h3>
-            <p><strong>Location:</strong> {session.location}</p>
-            <p><strong>Start Time:</strong> {formatTime12h(session.start)}</p>
-            <p><strong>End Time:</strong> {formatTime12h(session.end)}</p>
-            <p><strong>Total Minutes:</strong> {session.totalMinutes}</p>
+          <h3>Session Details for {date.toDateString()}</h3>
+          <p><strong>Location:</strong> {session.location}</p>
+          <p><strong>Start Time:</strong> {formatTime12h(session.start)}</p>
+          <p><strong>End Time:</strong> {formatTime12h(session.end)}</p>
+          <p><strong>Total Minutes:</strong> {session.totalMinutes}</p>
             <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
             <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
             <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1430,27 +1422,25 @@ function App() {
                 Add Drills
               </button>
             </h4>
-            <DraggableDrillPills
-              assignedDrills={assignedDrills}
-              onReorder={async (newOrderIdxs) => {
-                await handleReorderDrills(newOrderIdxs);
-              }}
-              onRemove={async (removeIdx) => {
-                await handleRemoveDrillInstance(removeIdx);
-              }}
-              sessionStartTime={session.start}
-              getDrillNote={(_, idx) => assignedDrills[idx]?.note || ''}
-              editingNoteDrillId={editingNoteDrillId}
-              setEditingNoteDrillId={setEditingNoteDrillId}
-              noteInput={noteInput}
-              setNoteInput={setNoteInput}
-              handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
-              editingDurationKey={editingDurationKey}
-              setEditingDurationKey={setEditingDurationKey}
-              durationInput={durationInput}
-              setDurationInput={setDurationInput}
-              handleSaveDrillDuration={handleSaveDrillDuration}
-            />
+          <DraggableDrillPills
+            assignedDrills={assignedDrills}
+            onReorder={handleReorderDrills}
+            onRemove={async (removeIdx) => {
+              await handleRemoveDrillInstance(removeIdx);
+            }}
+            sessionStartTime={session.start}
+            getDrillNote={(_, idx) => assignedDrills[idx]?.note || ''}
+            editingNoteDrillId={editingNoteDrillId}
+            setEditingNoteDrillId={setEditingNoteDrillId}
+            noteInput={noteInput}
+            setNoteInput={setNoteInput}
+            handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
+            editingDurationKey={editingDurationKey}
+            setEditingDurationKey={setEditingDurationKey}
+            durationInput={durationInput}
+            setDurationInput={setDurationInput}
+            handleSaveDrillDuration={handleSaveDrillDuration}
+          />
             {/* Add summary at the bottom */}
             <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginTop: 16, fontSize: '1rem' }}>
               <div><strong>Total Minutes:</strong> {session.totalMinutes}</div>
@@ -1465,8 +1455,8 @@ function App() {
             >
               Save/Close
             </button>
-            <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
-            <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
+          <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
+          <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
             {/* Spacer to prevent overlap with fixed bottom bar */}
             <div style={{ height: 120 }} />
           </div>
