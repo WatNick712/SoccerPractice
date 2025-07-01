@@ -668,7 +668,7 @@ function App() {
       </button>
       {drillSectionOpen && (
         <div className="modal-backdrop">
-          <div className="modal" style={{ maxWidth: 700, width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: 24 }}>
+          <div className="modal">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0 }}>Drills/Exercises</h2>
               <button onClick={() => setDrillSectionOpen(false)} style={{ fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
@@ -994,7 +994,7 @@ function App() {
       </button>
       {templateSectionOpen && (
         <div className="modal-backdrop">
-          <div className="modal" style={{ maxWidth: 800, width: '98%', maxHeight: '90vh', overflowY: 'auto', padding: 32 }}>
+          <div className="modal">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0 }}>Previous Practice Sessions</h2>
               <button onClick={() => setTemplateSectionOpen(false)} style={{ fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
