@@ -618,6 +618,7 @@ function App() {
       delete newSessions[date.toDateString()];
       return newSessions;
     });
+    setShowSessionDetails(false);
   };
 
   const clearDrillFilters = () => {
