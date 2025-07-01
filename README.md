@@ -138,15 +138,3 @@ firebase deploy
 ## Responsive Design
 
 This app is fully responsive and works well on all screen sizes, including mobile phones, tablets, and desktop computers. All views and modals automatically adapt to the device being used, ensuring a smooth experience for every user.
-
-## Features / Improvements
-
-- Session details panel is now scrollable and always visible above the fixed bottom bar, with extra bottom padding to prevent overlap with action buttons.
-- Calendar and session details are both centered with equal spacing on all sides for a modern, balanced UI.
-- Drills/Exercises and Previous Practice Sessions buttons are always accessible and do not overlap content.
-- Robust support for team-based data separation: all drills, sessions, and templates are scoped to the selected team.
-- Modern, responsive layout for all main app panels.
-
-## Data Migration
-
-- A one-time migration function was used to add the `teamId` field to all existing drills, sessions, and sessionTemplates in Firestore. This ensures all data is now properly scoped to the current team and visible in the app.

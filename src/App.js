@@ -8,6 +8,7 @@ import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc as firestoreDoc, setDoc as firestoreSetDoc, getDoc as firestoreGetDoc, collection as firestoreCollection, getDocs as firestoreGetDocs } from 'firebase/firestore';
 
 // Define CATEGORY_OPTIONS at the top
 const CATEGORY_OPTIONS = [
@@ -349,7 +350,7 @@ function App() {
     }
   }, [user, fetchUserTeams]);
 
-  // Fetch drills from Firestore (restore teamId filter)
+  // Fetch drills from Firestore
   useEffect(() => {
     if (!selectedTeam) {
       setDrills([]);
@@ -409,11 +410,16 @@ function App() {
     }
   }, [date, sessions]);
 
-  // Fetch templates from Firestore
+  // Fetch templates from Firestore, scoped to selected team
   useEffect(() => {
+    if (!selectedTeam) {
+      setTemplates([]);
+      return;
+    }
     const fetchTemplates = async () => {
       setLoadingTemplates(true);
-      const querySnapshot = await getDocs(collection(db, 'sessionTemplates'));
+      const q = query(collection(db, 'sessionTemplates'), where('teamId', '==', selectedTeam.id));
+      const querySnapshot = await getDocs(q);
       const templateList = [];
       querySnapshot.forEach((doc) => {
         templateList.push({ id: doc.id, ...doc.data() });
@@ -422,7 +428,7 @@ function App() {
       setLoadingTemplates(false);
     };
     fetchTemplates();
-  }, []);
+  }, [selectedTeam]);
 
   const [showSessionDetails, setShowSessionDetails] = useState(false);
 
@@ -570,6 +576,7 @@ function App() {
       name: templateName,
       session: session,
       createdAt: new Date().toISOString(),
+      teamId: selectedTeam.id,
     };
     const docRef = await addDoc(collection(db, 'sessionTemplates'), templateData);
     setTemplates([...templates, { id: docRef.id, ...templateData }]);
@@ -778,17 +785,36 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Debug: Log loaded drills and selectedTeam
+  // Save user info to Firestore on sign-in
   useEffect(() => {
-    if (selectedTeam) {
-      console.log('Selected team ID:', selectedTeam.id);
+    if (user) {
+      const saveUserInfo = async () => {
+        const userRef = firestoreDoc(db, 'users', user.uid);
+        await firestoreSetDoc(userRef, {
+          displayName: user.displayName || '',
+          email: user.email || '',
+        }, { merge: true });
+      };
+      saveUserInfo();
     }
-    if (drills.length === 0) {
-      console.log('No drills loaded for team:', selectedTeam?.id);
-    } else {
-      console.log('Loaded drills:', drills);
-    }
-  }, [drills, selectedTeam]);
+  }, [user]);
+
+  // State for team member user info
+  const [teamMemberInfos, setTeamMemberInfos] = useState([]);
+
+  // Fetch user info for all team members when the modal opens
+  useEffect(() => {
+    const fetchTeamMemberInfos = async () => {
+      if (membersModalOpen && selectedTeam && selectedTeam.members && selectedTeam.members.length > 0) {
+        const usersCol = firestoreCollection(db, 'users');
+        const userDocs = await Promise.all(selectedTeam.members.map(uid => firestoreGetDoc(firestoreDoc(usersCol, uid))));
+        setTeamMemberInfos(userDocs.map(docSnap => docSnap.exists() ? { uid: docSnap.id, ...docSnap.data() } : { uid: docSnap.id }));
+      } else {
+        setTeamMemberInfos([]);
+      }
+    };
+    fetchTeamMemberInfos();
+  }, [membersModalOpen, selectedTeam]);
 
   if (authLoading) {
     return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
@@ -813,33 +839,73 @@ function App() {
           <p>To use Soccer Planner, you must create or join a team.</p>
           <button onClick={() => setTeamModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Create Team</button>
           <button onClick={() => setJoinModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Join Team</button>
-          {teamModalOpen && (
-            <div className="modal-backdrop">
-              <div className="modal">
-                <h3>Create a Team</h3>
-                <input type="text" value={teamNameInput} onChange={e => setTeamNameInput(e.target.value)} placeholder="Team Name" style={{ width: '100%', marginBottom: 12 }} />
-                <button onClick={handleCreateTeam} disabled={teamLoading || !teamNameInput} style={{ marginRight: 8 }}>Create</button>
-                <button onClick={() => setTeamModalOpen(false)}>Cancel</button>
-              </div>
-            </div>
-          )}
-          {joinModalOpen && (
-            <div className="modal-backdrop">
-              <div className="modal">
-                <h3>Join a Team</h3>
-                <input type="text" value={inviteCodeInput} onChange={e => setInviteCodeInput(e.target.value)} placeholder="Invite Code" style={{ width: '100%', marginBottom: 12 }} />
-                <button onClick={handleJoinTeam} disabled={teamLoading || !inviteCodeInput} style={{ marginRight: 8 }}>Join</button>
-                <button onClick={() => setJoinModalOpen(false)}>Cancel</button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
   }
 
+  // Always render the modals for team actions so they are accessible from the header
+  const teamModals = <>
+    {teamModalOpen && (
+      <div className="modal-backdrop" style={{ zIndex: 10000 }}>
+        <div className="modal" style={{ zIndex: 10001 }}>
+          <h3>Create a Team</h3>
+          <input type="text" value={teamNameInput} onChange={e => setTeamNameInput(e.target.value)} placeholder="Team Name" style={{ width: '100%', marginBottom: 12 }} />
+          <button onClick={handleCreateTeam} disabled={teamLoading || !teamNameInput} style={{ marginRight: 8 }}>Create</button>
+          <button onClick={() => setTeamModalOpen(false)}>Cancel</button>
+        </div>
+      </div>
+    )}
+    {joinModalOpen && (
+      <div className="modal-backdrop" style={{ zIndex: 10000 }}>
+        <div className="modal" style={{ zIndex: 10001 }}>
+          <h3>Join a Team</h3>
+          <input type="text" value={inviteCodeInput} onChange={e => setInviteCodeInput(e.target.value)} placeholder="Invite Code" style={{ width: '100%', marginBottom: 12 }} />
+          <button onClick={handleJoinTeam} disabled={teamLoading || !inviteCodeInput} style={{ marginRight: 8 }}>Join</button>
+          <button onClick={() => setJoinModalOpen(false)}>Cancel</button>
+        </div>
+      </div>
+    )}
+    {membersModalOpen && selectedTeam && (
+      <div className="modal-backdrop" style={{ zIndex: 10000 }}>
+        <div className="modal" style={{ zIndex: 10001 }}>
+          <h3>Team Members</h3>
+          <ul style={{ listStyle: 'none', padding: 0, marginBottom: 16 }}>
+            {teamMemberInfos.length > 0 ? (
+              teamMemberInfos.map((info, idx) => (
+                <li key={info.uid} style={{ padding: '6px 0', borderBottom: '1px solid #eee' }}>
+                  {info.displayName ? (
+                    <span><strong>{info.displayName}</strong> <span style={{ color: '#888', fontSize: '0.95em' }}>({info.email})</span></span>
+                  ) : (
+                    <span>{info.uid}</span>
+                  )}
+                </li>
+              ))
+            ) : (
+              <li>No members found.</li>
+            )}
+          </ul>
+          <div style={{ marginBottom: 12 }}>
+            <strong>Invite Code:</strong> <span style={{ background: '#e3f0fb', padding: '4px 10px', borderRadius: 6, fontWeight: 500 }}>{selectedTeam.inviteCode}</span>
+            <button
+              style={{ marginLeft: 8, padding: '4px 12px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95em' }}
+              onClick={() => { navigator.clipboard.writeText(selectedTeam.inviteCode); }}
+            >
+              Copy
+            </button>
+            <div style={{ fontSize: '0.95em', color: '#444', marginTop: 4 }}>
+              Share this code with others to let them join your team.
+            </div>
+          </div>
+          <button onClick={() => setMembersModalOpen(false)}>Close</button>
+        </div>
+      </div>
+    )}
+  </>;
+
   return (
     <div className="App" style={{ minHeight: '100vh', background: '#2d313a', display: 'flex', flexDirection: 'column' }}>
+      {teamModals}
       {/* Modernized Header */}
       <header style={{
         width: '100%',
@@ -850,7 +916,11 @@ function App() {
         alignItems: 'center',
         justifyContent: 'space-between',
         minHeight: 72,
-        zIndex: 10,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 9999,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 32 }}>
           <span style={{
@@ -907,6 +977,7 @@ function App() {
         position: 'relative',
         width: '100%',
         height: 'calc(100vh - 72px - 96px)', // header + bottom bar
+        marginTop: 72,
       }}>
         {!showSessionDetails && (
           <div className="calendar-container" style={{
@@ -1094,8 +1165,8 @@ function App() {
         </div>
       )}
       {modalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal">
+        <div className="modal-backdrop" style={{ zIndex: 10000 }}>
+          <div className="modal" style={{ zIndex: 10001 }}>
             <button
               onClick={() => setModalOpen(false)}
               style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
@@ -1283,7 +1354,7 @@ function App() {
             height: 'calc(100vh - 72px - 96px)', // header + bottom bar
             width: '100%',
             position: 'relative',
-            paddingBottom: 160, // extra space for bottom bar
+            marginTop: 72, // ensure header is not overlapped
           }}
         >
           <div
@@ -1304,6 +1375,7 @@ function App() {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'stretch',
+              paddingBottom: 180, // extra space for bottom bar and action buttons
             }}
           >
             <button
@@ -1368,13 +1440,15 @@ function App() {
             </button>
             <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
             <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
+            {/* Spacer to prevent overlap with fixed bottom bar */}
+            <div style={{ height: 120 }} />
           </div>
         </div>
       )}
       {/* Previous Practice Sessions Modal Trigger */}
       {templateSectionOpen && (
-        <div className="modal-backdrop">
-          <div className="modal">
+        <div className="modal-backdrop" style={{ zIndex: 10000 }}>
+          <div className="modal" style={{ zIndex: 10001 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0 }}>Previous Practice Sessions</h2>
               <button onClick={() => setTemplateSectionOpen(false)} style={{ fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
@@ -1412,8 +1486,8 @@ function App() {
         </div>
       )}
       {templateModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal">
+        <div className="modal-backdrop" style={{ zIndex: 10000 }}>
+          <div className="modal" style={{ zIndex: 10001 }}>
             <h2>Save Practice Session as Template</h2>
             <label>
               Template Name:<br />
@@ -1432,8 +1506,8 @@ function App() {
         </div>
       )}
       {drillModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal">
+        <div className="modal-backdrop" style={{ zIndex: 10000 }}>
+          <div className="modal" style={{ zIndex: 10001 }}>
             <h2>{drillForm.name ? 'Edit Drill/Exercise' : 'Add Drill/Exercise'}</h2>
             <form onSubmit={async (e) => {
               e.preventDefault();
