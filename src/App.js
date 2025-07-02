@@ -856,12 +856,59 @@ function App() {
     return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
   }
   if (!user) {
-  return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <h2>Soccer Planner Login</h2>
-        <button onClick={handleSignIn} style={{ padding: '12px 32px', borderRadius: 8, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.2rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)' }}>
-          Sign in with Google
-        </button>
+    return (
+      <div style={{
+        minHeight: '100vh',
+        width: '100vw',
+        background: 'linear-gradient(135deg, #e3f0fb 0%, #f7faff 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{
+          background: '#fff',
+          borderRadius: 24,
+          boxShadow: '0 8px 32px rgba(25, 118, 210, 0.12)',
+          padding: '48px 36px 40px 36px',
+          minWidth: 340,
+          maxWidth: 380,
+          width: '90vw',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}>
+          <div style={{ marginBottom: 24 }}>
+            <img src="/soccer-ball.png" alt="Soccer Ball" style={{ width: 64, height: 64, filter: 'drop-shadow(0 2px 8px rgba(25,118,210,0.10))' }} />
+          </div>
+          <h2 style={{ fontSize: '2.1em', fontWeight: 800, color: '#1976d2', margin: 0, marginBottom: 8, letterSpacing: '0.5px' }}>Soccer Planner</h2>
+          <div style={{ fontSize: '1.1em', color: '#444', marginBottom: 32, textAlign: 'center', fontWeight: 500 }}>
+            Plan, organize, and track your soccer practices.<br />Sign in to get started!
+          </div>
+          <button
+            onClick={handleSignIn}
+            style={{
+              padding: '12px 32px',
+              borderRadius: 8,
+              border: 'none',
+              background: '#fff',
+              color: '#222',
+              fontWeight: 'bold',
+              fontSize: '1.15rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              transition: 'background 0.2s, color 0.2s',
+              borderBottom: '3px solid #1976d2',
+            }}
+            onMouseOver={e => { e.target.style.background = '#e3f0fb'; }}
+            onMouseOut={e => { e.target.style.background = '#fff'; }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" style={{ marginRight: 8 }}><g><path fill="#4285F4" d="M21.805 10.023h-9.765v3.977h5.617c-.242 1.242-1.484 3.648-5.617 3.648-3.375 0-6.125-2.789-6.125-6.148 0-3.359 2.75-6.148 6.125-6.148 1.922 0 3.211.82 3.953 1.523l2.703-2.633c-1.719-1.594-3.953-2.57-6.656-2.57-5.523 0-10 4.477-10 10s4.477 10 10 10c5.781 0 9.594-4.055 9.594-9.773 0-.656-.07-1.148-.164-1.477z"></path><path fill="#34A853" d="M3.153 7.345l3.281 2.406c.891-1.781 2.531-2.953 4.566-2.953 1.109 0 2.125.383 2.922 1.016l2.797-2.719c-1.484-1.367-3.406-2.094-5.719-2.094-3.672 0-6.75 2.484-7.844 5.844z"></path><path fill="#FBBC05" d="M12 22c2.438 0 4.484-.805 5.977-2.188l-2.781-2.273c-.781.523-1.781.836-3.195.836-2.484 0-4.594-1.68-5.352-3.953l-3.273 2.531c1.484 3.273 4.828 5.047 8.624 5.047z"></path><path fill="#EA4335" d="M21.805 10.023h-9.765v3.977h5.617c-.242 1.242-1.484 3.648-5.617 3.648-3.375 0-6.125-2.789-6.125-6.148 0-3.359 2.75-6.148 6.125-6.148 1.922 0 3.211.82 3.953 1.523l2.703-2.633c-1.719-1.594-3.953-2.57-6.656-2.57-5.523 0-10 4.477-10 10s4.477 10 10 10c5.781 0 9.594-4.055 9.594-9.773 0-.656-.07-1.148-.164-1.477z" opacity=".1"></path></g></svg>
+            Sign in with Google
+          </button>
+        </div>
       </div>
     );
   }
