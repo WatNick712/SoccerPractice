@@ -16,6 +16,12 @@ const CATEGORY_OPTIONS = [
   'Possession', 'Position and Shape', 'Pressing', 'Scanning', 'Transition', 'Warmup', 'Water Break'
 ];
 
+// Default categories for new teams
+const CATEGORIES_DEFAULT = [
+  'Conditioning', 'Defending', 'Finishing', 'Indoor Gym', 'Overloads', 'Passing',
+  'Possession', 'Position and Shape', 'Pressing', 'Scanning', 'Transition', 'Warmup', 'Water Break'
+];
+
 // Sortable pill component for drills
 function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration }) {
   const isEditing = editingNoteDrillId === idx;
@@ -310,7 +316,7 @@ function App() {
   const [membersModalOpen, setMembersModalOpen] = useState(false);
   const [date, setDate] = useState(new Date());
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ location: '', start: '', end: '' });
+  const [form, setForm] = useState({ location: '', start: '', end: '', objective: '' });
   const [sessions, setSessions] = useState({});
   const [drills, setDrills] = useState([]);
   const [drillLoading, setDrillLoading] = useState(false);
@@ -333,6 +339,13 @@ function App() {
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
   const [drillModalOpen, setDrillModalOpen] = useState(false);
   const [drillForm, setDrillForm] = useState({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
+  const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [addCategoryError, setAddCategoryError] = useState('');
+  const [manageCategoriesModalOpen, setManageCategoriesModalOpen] = useState(false);
+  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [categoryDeleteError, setCategoryDeleteError] = useState('');
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
 
   const sessionInfoRef = useRef(null);
 
@@ -422,9 +435,10 @@ function App() {
         location: sessionData.location || '',
         start: sessionData.start || '',
         end: sessionData.end || '',
+        objective: sessionData.objective || '',
       });
     } else {
-      setForm({ location: '', start: '', end: '' });
+      setForm({ location: '', start: '', end: '', objective: '' });
     }
   }, [date, sessions]);
 
@@ -489,6 +503,7 @@ function App() {
         drillAssignments: [],
         teamId: selectedTeam.id,
         date: date.toDateString(),
+        objective: form.objective || '',
       };
     }
     const newAssignments = [
@@ -537,6 +552,7 @@ function App() {
       drillAssignments: (session && session.drillAssignments) ? session.drillAssignments : [],
       teamId: selectedTeam.id,
       date: date.toDateString(),
+      objective: form.objective || '',
     };
     let sessionDocId = session && session.id;
     if (!sessionDocId) {
@@ -779,6 +795,7 @@ function App() {
       members: [user.uid],
       inviteCode,
       createdAt: new Date().toISOString(),
+      categories: CATEGORIES_DEFAULT,
     };
     const docRef = await addDoc(teamsCollection, newTeam);
     setTeams([...teams, { id: docRef.id, ...newTeam }]);
@@ -851,6 +868,76 @@ function App() {
     };
     fetchTeamMemberInfos();
   }, [membersModalOpen, selectedTeam]);
+
+  const [teamCategories, setTeamCategories] = useState(CATEGORIES_DEFAULT);
+
+  // When selectedTeam changes, update teamCategories
+  useEffect(() => {
+    if (selectedTeam && selectedTeam.categories && Array.isArray(selectedTeam.categories)) {
+      setTeamCategories(selectedTeam.categories);
+    } else {
+      setTeamCategories(CATEGORIES_DEFAULT);
+    }
+  }, [selectedTeam]);
+
+  // Add handler to add a new category
+  const handleAddCategory = async () => {
+    const newCat = newCategoryInput.trim();
+    if (!newCat) {
+      setAddCategoryError('Category name cannot be empty.');
+      return;
+    }
+    if (teamCategories.some(cat => cat.toLowerCase() === newCat.toLowerCase())) {
+      setAddCategoryError('Category already exists.');
+      return;
+    }
+    try {
+      const updatedCategories = [...teamCategories, newCat].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      // Update Firestore
+      await updateDoc(doc(teamsCollection, selectedTeam.id), { categories: updatedCategories });
+      // Update local state
+      setTeamCategories(updatedCategories);
+      setSelectedTeam(prev => ({ ...prev, categories: updatedCategories }));
+      setAddCategoryModalOpen(false);
+      setNewCategoryInput('');
+      setAddCategoryError('');
+    } catch (err) {
+      setAddCategoryError('Failed to add category.');
+    }
+  };
+
+  // Open manage modal and initialize order
+  const openManageCategoriesModal = () => {
+    setCategoryOrder(teamCategories);
+    setManageCategoriesModalOpen(true);
+    setCategoryDeleteError('');
+    setCategoryToDelete(null);
+  };
+
+  // Save reordered categories
+  const handleSaveCategoryOrder = async () => {
+    await updateDoc(doc(teamsCollection, selectedTeam.id), { categories: categoryOrder });
+    setTeamCategories(categoryOrder);
+    setSelectedTeam(prev => ({ ...prev, categories: categoryOrder }));
+    setManageCategoriesModalOpen(false);
+  };
+
+  // Delete category (with check)
+  const handleDeleteCategory = async (cat) => {
+    // Check if any drill uses this category
+    if (drills.some(drill => Array.isArray(drill.categories) && drill.categories.includes(cat))) {
+      setCategoryDeleteError('Cannot delete: Category is used by a drill.');
+      setCategoryToDelete(null);
+      return;
+    }
+    const updated = categoryOrder.filter(c => c !== cat);
+    await updateDoc(doc(teamsCollection, selectedTeam.id), { categories: updated });
+    setTeamCategories(updated);
+    setSelectedTeam(prev => ({ ...prev, categories: updated }));
+    setCategoryOrder(updated);
+    setCategoryDeleteError('');
+    setCategoryToDelete(null);
+  };
 
   if (authLoading) {
     return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
@@ -1040,6 +1127,7 @@ function App() {
             <p><strong>Total Minutes:</strong> {session.totalMinutes}</p>
             <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
             <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
+            <p><strong>Objective:</strong> {session.objective || <span style={{ color: '#888' }}>No objective set</span>}</p>
             <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Assigned Drills
               <button
@@ -1415,6 +1503,18 @@ function App() {
                 />
               </label>
               <br />
+              <label>
+                Objective:<br />
+                <input
+                  type="text"
+                  name="objective"
+                  value={form.objective}
+                  onChange={handleChange}
+                  placeholder="e.g. Build from the back, focus on transitions"
+                  style={{ width: '100%' }}
+                />
+              </label>
+              <br />
               {/* Drill selection with filters and improved layout */}
               <label>
                 Assign Drills:
@@ -1681,10 +1781,28 @@ function App() {
                   }}
                   style={{ width: '100%', minHeight: 180, marginBottom: 8 }}
                 >
-                  {CATEGORY_OPTIONS.map(cat => (
+                  {teamCategories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setAddCategoryModalOpen(true); setNewCategoryInput(''); setAddCategoryError(''); }}
+                    style={{ borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95em', padding: '4px 16px' }}
+                    disabled={!selectedTeam}
+                  >
+                    Add Category
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openManageCategoriesModal}
+                    style={{ borderRadius: 6, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95em', padding: '4px 16px' }}
+                    disabled={!selectedTeam}
+                  >
+                    Manage Categories
+                  </button>
+                </div>
               </label>
               <br />
               <label>
@@ -1707,6 +1825,62 @@ function App() {
                 Cancel
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      {addCategoryModalOpen && (
+        <div className="modal-backdrop" style={{ zIndex: 13000 }}>
+          <div className="modal" style={{ zIndex: 13001, maxWidth: 400, minWidth: 300, marginTop: 120, boxShadow: '0 8px 32px rgba(25, 118, 210, 0.18)', background: '#fff', borderRadius: 18, position: 'relative', padding: 32, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <button onClick={() => setAddCategoryModalOpen(false)} style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }} aria-label="Close add category modal">×</button>
+            <h2>Add New Category</h2>
+            <input type="text" value={newCategoryInput} onChange={e => { setNewCategoryInput(e.target.value); setAddCategoryError(''); }} placeholder="Category name" style={{ width: '100%', marginBottom: 12, borderRadius: 6, border: '1px solid #ccc', padding: '8px 12px', fontSize: '1.1em' }} />
+            {addCategoryError && <div style={{ color: '#c00', marginBottom: 8 }}>{addCategoryError}</div>}
+            <button onClick={handleAddCategory} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)' }}>Add</button>
+          </div>
+        </div>
+      )}
+      {manageCategoriesModalOpen && (
+        <div className="modal-backdrop" style={{ zIndex: 14000 }}>
+          <div className="modal" style={{ zIndex: 14001, maxWidth: 400, minWidth: 300, marginTop: 120, boxShadow: '0 8px 32px rgba(25, 118, 210, 0.18)', background: '#fff', borderRadius: 18, position: 'relative', padding: 32, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <button onClick={() => setManageCategoriesModalOpen(false)} style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }} aria-label="Close manage categories modal">×</button>
+            <h2>Manage Categories</h2>
+            <div style={{ width: '100%', marginBottom: 16 }}>
+              <DndContext
+                collisionDetection={closestCenter}
+                onDragEnd={event => {
+                  const { active, over } = event;
+                  if (active.id !== over.id) {
+                    const oldIndex = categoryOrder.findIndex(c => c === active.id);
+                    const newIndex = categoryOrder.findIndex(c => c === over.id);
+                    const newOrder = [...categoryOrder];
+                    const [moved] = newOrder.splice(oldIndex, 1);
+                    newOrder.splice(newIndex, 0, moved);
+                    setCategoryOrder(newOrder);
+                  }
+                }}
+              >
+                <SortableContext items={categoryOrder} strategy={verticalListSortingStrategy}>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {categoryOrder.map(cat => (
+                      <CategoryRow
+                        key={cat}
+                        cat={cat}
+                        onDelete={() => setCategoryToDelete(cat)}
+                      />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
+            </div>
+            {categoryDeleteError && <div style={{ color: '#c00', marginBottom: 8 }}>{categoryDeleteError}</div>}
+            <button onClick={handleSaveCategoryOrder} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)' }}>Save Order</button>
+            {categoryToDelete && (
+              <div style={{ marginTop: 16, background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8, padding: 16, textAlign: 'center' }}>
+                <div style={{ marginBottom: 8 }}>Delete category <strong>{categoryToDelete}</strong>? This cannot be undone.</div>
+                <button onClick={() => handleDeleteCategory(categoryToDelete)} style={{ background: '#c00', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 18px', fontWeight: 'bold', marginRight: 8 }}>Delete</button>
+                <button onClick={() => setCategoryToDelete(null)} style={{ background: '#eee', color: '#222', border: 'none', borderRadius: 6, padding: '6px 18px', fontWeight: 'bold' }}>Cancel</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1749,6 +1923,30 @@ calendarArrowStyle.innerHTML = `
 if (!document.head.querySelector('#calendar-arrow-style')) {
   calendarArrowStyle.id = 'calendar-arrow-style';
   document.head.appendChild(calendarArrowStyle);
+}
+
+// Helper component for sortable category row
+function CategoryRow({ cat, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 2 : 1,
+    background: isDragging ? '#e3f0fb' : '#f7f7f7',
+    borderRadius: 8,
+    marginBottom: 8,
+    padding: '8px 12px',
+    display: 'flex',
+    alignItems: 'center',
+    boxShadow: isDragging ? '0 2px 8px rgba(25,118,210,0.10)' : 'none',
+  };
+  return (
+    <li ref={setNodeRef} style={style}>
+      <span {...attributes} {...listeners} style={{ cursor: 'grab', marginRight: 12, fontSize: '1.2em', userSelect: 'none', display: 'flex', alignItems: 'center' }}>≡</span>
+      <span style={{ flex: 1 }}>{cat}</span>
+      <button onClick={onDelete} style={{ background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold', marginLeft: 8 }}>×</button>
+    </li>
+  );
 }
 
 export default App;
