@@ -419,6 +419,13 @@ function App() {
     }
   }, [user, fetchUserTeams]);
 
+  // Ensure selectedTeam is set if only one team exists and none is selected
+  useEffect(() => {
+    if (!selectedTeam && teams.length === 1) {
+      setSelectedTeam(teams[0]);
+    }
+  }, [teams, selectedTeam]);
+
   // Fetch drills from Firestore
   useEffect(() => {
     if (!selectedTeam) {
