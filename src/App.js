@@ -360,6 +360,8 @@ function App() {
   const [imageModalUrl, setImageModalUrl] = useState('');
   // Add state for GK drill checkbox in session modal
   const [isAddingGKDrill, setIsAddingGKDrill] = useState(false);
+  // Add state for session view filter
+  const [sessionViewFilter, setSessionViewFilter] = useState('both');
 
   const sessionInfoRef = useRef(null);
 
@@ -1156,72 +1158,99 @@ function App() {
             <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
             <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
             <p><strong>Objective:</strong> {session.objective || <span style={{ color: '#888' }}>No objective set</span>}</p>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              Assigned Drills
-              <button
-                onClick={() => { setModalOpen(true); setShowSessionDetails(false); }}
-                style={{ marginLeft: 8, padding: '4px 16px', borderRadius: 6, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95em', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
-                onMouseOver={e => { e.target.style.background = '#1251a3'; }}
-                onMouseOut={e => { e.target.style.background = '#1976d2'; }}
-              >
-                Add Drills
-              </button>
-            </h4>
+            {/* Session View Filter */}
+            <div style={{ margin: '16px 0 8px 0', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ fontWeight: 500 }}>Show:</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="radio"
+                  name="sessionViewFilter"
+                  value="both"
+                  checked={sessionViewFilter === 'both'}
+                  onChange={() => setSessionViewFilter('both')}
+                />
+                Both
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="radio"
+                  name="sessionViewFilter"
+                  value="field"
+                  checked={sessionViewFilter === 'field'}
+                  onChange={() => setSessionViewFilter('field')}
+                />
+                Field Only
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="radio"
+                  name="sessionViewFilter"
+                  value="gk"
+                  checked={sessionViewFilter === 'gk'}
+                  onChange={() => setSessionViewFilter('gk')}
+                />
+                Goal Keeper Only
+              </label>
+            </div>
             <div style={{ display: 'flex', gap: 32, marginTop: 16 }}>
-              <div style={{ flex: 1 }}>
-                <h4>Field Player Drills</h4>
-                <DraggableDrillPills
-                  assignedDrills={fieldDrills}
-                  onReorder={handleReorderDrills}
-                  onRemove={async (removeIdx) => {
-                    // Remove from fieldDrills index
-                    const globalIdx = assignedDrills.findIndex((d, i) => d.id === fieldDrills[removeIdx].id && d.isGoalKeeper === false && i >= 0);
-                    await handleRemoveDrillInstance(globalIdx);
-                  }}
-                  sessionStartTime={session.start}
-                  getDrillNote={(_, idx) => fieldDrills[idx]?.note || ''}
-                  editingNoteDrillId={editingNoteDrillId}
-                  setEditingNoteDrillId={setEditingNoteDrillId}
-                  noteInput={noteInput}
-                  setNoteInput={setNoteInput}
-                  handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
-                  editingDurationKey={editingDurationKey}
-                  setEditingDurationKey={setEditingDurationKey}
-                  durationInput={durationInput}
-                  setDurationInput={setDurationInput}
-                  handleSaveDrillDuration={handleSaveDrillDuration}
-                  setImageModalUrl={setImageModalUrl}
-                  setImageModalOpen={setImageModalOpen}
-                />
-                <div><strong>Total Field Drill Time:</strong> {totalDrillTime} min</div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <h4>Goal Keeper Drills</h4>
-                <DraggableDrillPills
-                  assignedDrills={gkDrills}
-                  onReorder={handleReorderDrills}
-                  onRemove={async (removeIdx) => {
-                    // Remove from gkDrills index
-                    const globalIdx = assignedDrills.findIndex((d, i) => d.id === gkDrills[removeIdx].id && d.isGoalKeeper === true && i >= 0);
-                    await handleRemoveDrillInstance(globalIdx);
-                  }}
-                  sessionStartTime={session.start}
-                  getDrillNote={(_, idx) => gkDrills[idx]?.note || ''}
-                  editingNoteDrillId={editingNoteDrillId}
-                  setEditingNoteDrillId={setEditingNoteDrillId}
-                  noteInput={noteInput}
-                  setNoteInput={setNoteInput}
-                  handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
-                  editingDurationKey={editingDurationKey}
-                  setEditingDurationKey={setEditingDurationKey}
-                  durationInput={durationInput}
-                  setDurationInput={setDurationInput}
-                  handleSaveDrillDuration={handleSaveDrillDuration}
-                  setImageModalUrl={setImageModalUrl}
-                  setImageModalOpen={setImageModalOpen}
-                />
-                <div><strong>Total GK Drill Time:</strong> {totalGKDrillTime} min</div>
-              </div>
+              {(sessionViewFilter === 'both' || sessionViewFilter === 'field') && (
+                <div style={{ flex: 1 }}>
+                  <h4>Field Player Drills</h4>
+                  <DraggableDrillPills
+                    assignedDrills={fieldDrills}
+                    onReorder={handleReorderDrills}
+                    onRemove={async (removeIdx) => {
+                      // Remove from fieldDrills index
+                      const globalIdx = assignedDrills.findIndex((d, i) => d.id === fieldDrills[removeIdx].id && d.isGoalKeeper === false && i >= 0);
+                      await handleRemoveDrillInstance(globalIdx);
+                    }}
+                    sessionStartTime={session.start}
+                    getDrillNote={(_, idx) => fieldDrills[idx]?.note || ''}
+                    editingNoteDrillId={editingNoteDrillId}
+                    setEditingNoteDrillId={setEditingNoteDrillId}
+                    noteInput={noteInput}
+                    setNoteInput={setNoteInput}
+                    handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
+                    editingDurationKey={editingDurationKey}
+                    setEditingDurationKey={setEditingDurationKey}
+                    durationInput={durationInput}
+                    setDurationInput={setDurationInput}
+                    handleSaveDrillDuration={handleSaveDrillDuration}
+                    setImageModalUrl={setImageModalUrl}
+                    setImageModalOpen={setImageModalOpen}
+                  />
+                  <div><strong>Total Field Drill Time:</strong> {totalDrillTime} min</div>
+                </div>
+              )}
+              {(sessionViewFilter === 'both' || sessionViewFilter === 'gk') && (
+                <div style={{ flex: 1 }}>
+                  <h4>Goal Keeper Drills</h4>
+                  <DraggableDrillPills
+                    assignedDrills={gkDrills}
+                    onReorder={handleReorderDrills}
+                    onRemove={async (removeIdx) => {
+                      // Remove from gkDrills index
+                      const globalIdx = assignedDrills.findIndex((d, i) => d.id === gkDrills[removeIdx].id && d.isGoalKeeper === true && i >= 0);
+                      await handleRemoveDrillInstance(globalIdx);
+                    }}
+                    sessionStartTime={session.start}
+                    getDrillNote={(_, idx) => gkDrills[idx]?.note || ''}
+                    editingNoteDrillId={editingNoteDrillId}
+                    setEditingNoteDrillId={setEditingNoteDrillId}
+                    noteInput={noteInput}
+                    setNoteInput={setNoteInput}
+                    handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
+                    editingDurationKey={editingDurationKey}
+                    setEditingDurationKey={setEditingDurationKey}
+                    durationInput={durationInput}
+                    setDurationInput={setDurationInput}
+                    handleSaveDrillDuration={handleSaveDrillDuration}
+                    setImageModalUrl={setImageModalUrl}
+                    setImageModalOpen={setImageModalOpen}
+                  />
+                  <div><strong>Total GK Drill Time:</strong> {totalGKDrillTime} min</div>
+                </div>
+              )}
             </div>
             {/* Add summary at the bottom */}
             <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginTop: 16, fontSize: '1rem' }}>
