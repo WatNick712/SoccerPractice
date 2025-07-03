@@ -358,6 +358,8 @@ function App() {
   const [uploadError, setUploadError] = useState('');
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalUrl, setImageModalUrl] = useState('');
+  // Add state for GK drill checkbox in session modal
+  const [isAddingGKDrill, setIsAddingGKDrill] = useState(false);
 
   const sessionInfoRef = useRef(null);
 
@@ -505,7 +507,7 @@ function App() {
   };
 
   // Add a drill instance to the session, creating the session if it doesn't exist
-  const handleAddDrillInstance = async (drillId, idx) => {
+  const handleAddDrillInstance = async (drillId, idx, isGoalKeeper = false) => {
     setAddBtnAnimIdx(idx);
     setTimeout(() => setAddBtnAnimIdx(null), 350);
     let currentSession = session;
@@ -527,7 +529,7 @@ function App() {
     }
     const newAssignments = [
       ...(currentSession.drillAssignments ? currentSession.drillAssignments : []),
-      { id: drillId, note: '' },
+      { id: drillId, note: '', isGoalKeeper },
     ];
     const updatedSession = { ...currentSession, drillAssignments: newAssignments };
     let sessionDocId = currentSession.id;
@@ -541,8 +543,8 @@ function App() {
     }
     if (sessionDocId) {
       await setDoc(doc(collection(db, 'sessions'), sessionDocId), updatedSession);
-    setSessions((prev) => ({
-      ...prev,
+      setSessions((prev) => ({
+        ...prev,
         [date.toDateString()]: { ...updatedSession, id: sessionDocId },
       }));
     } else {
@@ -552,6 +554,7 @@ function App() {
         [date.toDateString()]: { ...updatedSession, id: docRef.id },
       }));
     }
+    setIsAddingGKDrill(false);
   };
 
   // Save session (merge form values with existing session, keep drillAssignments)
@@ -613,8 +616,11 @@ function App() {
         return drill ? { ...drill, ...a } : null;
       }).filter(Boolean)
     : [];
+  const fieldDrills = assignedDrills.filter(d => !d.isGoalKeeper);
+  const gkDrills = assignedDrills.filter(d => d.isGoalKeeper);
   // Use customDuration for totalDrillTime
-  const totalDrillTime = assignedDrills.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
+  const totalDrillTime = fieldDrills.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
+  const totalGKDrillTime = gkDrills.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
   const timeLeft = session ? (session.totalMinutes - totalDrillTime) : 0;
 
   // Save current session as template
@@ -1161,27 +1167,62 @@ function App() {
                 Add Drills
               </button>
             </h4>
-            <DraggableDrillPills
-              assignedDrills={assignedDrills}
-              onReorder={handleReorderDrills}
-              onRemove={async (removeIdx) => {
-                await handleRemoveDrillInstance(removeIdx);
-              }}
-              sessionStartTime={session.start}
-              getDrillNote={(_, idx) => assignedDrills[idx]?.note || ''}
-              editingNoteDrillId={editingNoteDrillId}
-              setEditingNoteDrillId={setEditingNoteDrillId}
-              noteInput={noteInput}
-              setNoteInput={setNoteInput}
-              handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
-              editingDurationKey={editingDurationKey}
-              setEditingDurationKey={setEditingDurationKey}
-              durationInput={durationInput}
-              setDurationInput={setDurationInput}
-              handleSaveDrillDuration={handleSaveDrillDuration}
-              setImageModalUrl={setImageModalUrl}
-              setImageModalOpen={setImageModalOpen}
-            />
+            <div style={{ display: 'flex', gap: 32, marginTop: 16 }}>
+              <div style={{ flex: 1 }}>
+                <h4>Field Player Drills</h4>
+                <DraggableDrillPills
+                  assignedDrills={fieldDrills}
+                  onReorder={handleReorderDrills}
+                  onRemove={async (removeIdx) => {
+                    // Remove from fieldDrills index
+                    const globalIdx = assignedDrills.findIndex((d, i) => d.id === fieldDrills[removeIdx].id && d.isGoalKeeper === false && i >= 0);
+                    await handleRemoveDrillInstance(globalIdx);
+                  }}
+                  sessionStartTime={session.start}
+                  getDrillNote={(_, idx) => fieldDrills[idx]?.note || ''}
+                  editingNoteDrillId={editingNoteDrillId}
+                  setEditingNoteDrillId={setEditingNoteDrillId}
+                  noteInput={noteInput}
+                  setNoteInput={setNoteInput}
+                  handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
+                  editingDurationKey={editingDurationKey}
+                  setEditingDurationKey={setEditingDurationKey}
+                  durationInput={durationInput}
+                  setDurationInput={setDurationInput}
+                  handleSaveDrillDuration={handleSaveDrillDuration}
+                  setImageModalUrl={setImageModalUrl}
+                  setImageModalOpen={setImageModalOpen}
+                />
+                <div><strong>Total Field Drill Time:</strong> {totalDrillTime} min</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h4>Goal Keeper Drills</h4>
+                <DraggableDrillPills
+                  assignedDrills={gkDrills}
+                  onReorder={handleReorderDrills}
+                  onRemove={async (removeIdx) => {
+                    // Remove from gkDrills index
+                    const globalIdx = assignedDrills.findIndex((d, i) => d.id === gkDrills[removeIdx].id && d.isGoalKeeper === true && i >= 0);
+                    await handleRemoveDrillInstance(globalIdx);
+                  }}
+                  sessionStartTime={session.start}
+                  getDrillNote={(_, idx) => gkDrills[idx]?.note || ''}
+                  editingNoteDrillId={editingNoteDrillId}
+                  setEditingNoteDrillId={setEditingNoteDrillId}
+                  noteInput={noteInput}
+                  setNoteInput={setNoteInput}
+                  handleSaveDrillNote={(idx, note) => handleSaveDrillInstanceNote(idx, note)}
+                  editingDurationKey={editingDurationKey}
+                  setEditingDurationKey={setEditingDurationKey}
+                  durationInput={durationInput}
+                  setDurationInput={setDurationInput}
+                  handleSaveDrillDuration={handleSaveDrillDuration}
+                  setImageModalUrl={setImageModalUrl}
+                  setImageModalOpen={setImageModalOpen}
+                />
+                <div><strong>Total GK Drill Time:</strong> {totalGKDrillTime} min</div>
+              </div>
+            </div>
             {/* Add summary at the bottom */}
             <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginTop: 16, fontSize: '1rem' }}>
               <div><strong>Total Minutes:</strong> {session.totalMinutes}</div>
@@ -1594,9 +1635,20 @@ function App() {
                   ) : (
                     filteredDrills.map((drill, idx) => (
                       <div key={drill.id} style={{ display: 'flex', alignItems: 'center', background: '#fff', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 8, padding: '8px 12px' }}>
+                        {/* GK Drill Checkbox */}
+                        <input
+                          type="checkbox"
+                          id={`gk-drill-checkbox-${drill.id}`}
+                          checked={isAddingGKDrill}
+                          onChange={e => setIsAddingGKDrill(e.target.checked)}
+                          style={{ marginRight: 8 }}
+                        />
+                        <label htmlFor={`gk-drill-checkbox-${drill.id}`} style={{ marginRight: 12, fontSize: '0.98em', color: '#1976d2', fontWeight: 500 }}>
+                          Goal Keeper Drill (runs in parallel)
+                        </label>
                         <button
                           type="button"
-                          onClick={() => handleAddDrillInstance(drill.id, idx)}
+                          onClick={() => handleAddDrillInstance(drill.id, idx, isAddingGKDrill)}
                           className={addBtnAnimIdx === idx ? 'add-btn-animate' : ''}
                           style={{
                             marginRight: 12,
