@@ -1158,6 +1158,15 @@ function App() {
             <p><strong>Total Drill Time:</strong> {totalDrillTime} min</p>
             <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
             <p><strong>Objective:</strong> {session.objective || <span style={{ color: '#888' }}>No objective set</span>}</p>
+            {/* Add Drills Button above the filter */}
+            <button
+              onClick={() => { setModalOpen(true); setShowSessionDetails(false); }}
+              style={{ marginBottom: 12, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
+              onMouseOver={e => { e.target.style.background = '#1251a3'; }}
+              onMouseOut={e => { e.target.style.background = '#1976d2'; }}
+            >
+              Add Drills
+            </button>
             {/* Session View Filter */}
             <div className="session-radio-group" style={{ margin: '16px 0 8px 0', display: 'flex', alignItems: 'center', gap: 16 }}>
               <span style={{ fontWeight: 500 }}>Show:</span>
