@@ -359,7 +359,7 @@ function App() {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalUrl, setImageModalUrl] = useState('');
   // Add state for GK drill checkbox in session modal
-  const [isAddingGKDrill, setIsAddingGKDrill] = useState(false);
+  const [gkDrillCheckboxes, setGKDrillCheckboxes] = useState({});
   // Add state for session view filter
   const [sessionViewFilter, setSessionViewFilter] = useState('both');
 
@@ -556,7 +556,6 @@ function App() {
         [date.toDateString()]: { ...updatedSession, id: docRef.id },
       }));
     }
-    setIsAddingGKDrill(false);
   };
 
   // Save session (merge form values with existing session, keep drillAssignments)
@@ -1677,16 +1676,19 @@ function App() {
                         <input
                           type="checkbox"
                           id={`gk-drill-checkbox-${drill.id}`}
-                          checked={isAddingGKDrill}
-                          onChange={e => setIsAddingGKDrill(e.target.checked)}
+                          checked={!!gkDrillCheckboxes[drill.id]}
+                          onChange={e => setGKDrillCheckboxes(prev => ({ ...prev, [drill.id]: e.target.checked }))}
                           style={{ marginRight: 8 }}
                         />
                         <label htmlFor={`gk-drill-checkbox-${drill.id}`} style={{ marginRight: 12, fontSize: '0.98em', color: '#1976d2', fontWeight: 500 }}>
-                          Goal Keeper Drill (runs in parallel)
+                          GK Drill
                         </label>
                         <button
                           type="button"
-                          onClick={() => handleAddDrillInstance(drill.id, idx, isAddingGKDrill)}
+                          onClick={() => {
+                            handleAddDrillInstance(drill.id, idx, !!gkDrillCheckboxes[drill.id]);
+                            setGKDrillCheckboxes(prev => ({ ...prev, [drill.id]: false }));
+                          }}
                           className={addBtnAnimIdx === idx ? 'add-btn-animate' : ''}
                           style={{
                             marginRight: 12,
