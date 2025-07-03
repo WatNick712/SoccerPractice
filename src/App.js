@@ -664,7 +664,7 @@ function App() {
   // Delete session logic
   const handleDeleteSession = async () => {
     if (!window.confirm('Are you sure you want to delete this session?')) return;
-    await deleteDoc(doc(collection(db, 'sessions'), date.toDateString()));
+    await deleteDoc(doc(collection(db, 'sessions'), session.id));
     setSessions((prev) => {
       const newSessions = { ...prev };
       delete newSessions[date.toDateString()];
