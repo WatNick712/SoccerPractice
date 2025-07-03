@@ -419,9 +419,9 @@ function App() {
     }
   }, [user, fetchUserTeams]);
 
-  // Ensure selectedTeam is set if only one team exists and none is selected
+  // Ensure selectedTeam is set if there are teams and none is selected
   useEffect(() => {
-    if (!selectedTeam && teams.length === 1) {
+    if (!selectedTeam && teams.length > 0) {
       setSelectedTeam(teams[0]);
     }
   }, [teams, selectedTeam]);
@@ -1020,7 +1020,7 @@ function App() {
   }
 
   // Team selection modal if no team or on demand
-  if (!selectedTeam && !teamLoading) {
+  if (teams.length === 0 || !selectedTeam) {
     return (
       <div className="modal-backdrop">
         <div className="modal" style={{ minWidth: 340 }}>
