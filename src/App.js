@@ -3,7 +3,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './App.css';
 import { db, auth, googleProvider, teamsCollection, storage, storageRef } from './firebase';
-import { collection, doc, setDoc, addDoc, getDocs, deleteDoc, query, where, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, getDocs, deleteDoc, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -965,6 +965,28 @@ function App() {
     setCategoryToDelete(null);
   };
 
+  // Add a function to remove team members
+  const handleRemoveTeamMember = async (memberUid) => {
+    if (!window.confirm('Are you sure you want to remove this team member?')) return;
+    try {
+      await updateDoc(doc(teamsCollection, selectedTeam.id), {
+        members: arrayRemove(memberUid),
+      });
+      // Update local state
+      setSelectedTeam(prev => ({
+        ...prev,
+        members: prev.members.filter(uid => uid !== memberUid)
+      }));
+      setTeams(prev => prev.map(team => 
+        team.id === selectedTeam.id 
+          ? { ...team, members: team.members.filter(uid => uid !== memberUid) }
+          : team
+      ));
+    } catch (err) {
+      alert('Failed to remove team member: ' + err.message);
+    }
+  };
+
   if (authLoading) {
     return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
   }
@@ -1055,11 +1077,31 @@ function App() {
           <ul style={{ listStyle: 'none', padding: 0, marginBottom: 16 }}>
             {teamMemberInfos.length > 0 ? (
               teamMemberInfos.map((info, idx) => (
-                <li key={info.uid} style={{ padding: '6px 0', borderBottom: '1px solid #eee' }}>
-                  {info.displayName ? (
-                    <span><strong>{info.displayName}</strong> <span style={{ color: '#888', fontSize: '0.95em' }}>({info.email})</span></span>
-                  ) : (
-                    <span>{info.uid}</span>
+                <li key={info.uid} style={{ padding: '6px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>
+                    {info.displayName ? (
+                      <span><strong>{info.displayName}</strong> <span style={{ color: '#888', fontSize: '0.95em' }}>({info.email})</span></span>
+                    ) : (
+                      <span>{info.uid}</span>
+                    )}
+                  </span>
+                  {/* Show Remove button only if current user is creator and member is not the creator */}
+                  {selectedTeam.createdBy === user.uid && info.uid !== selectedTeam.createdBy && (
+                    <button
+                      onClick={() => handleRemoveTeamMember(info.uid)}
+                      style={{
+                        background: '#c00',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        fontSize: '0.9em',
+                      }}
+                    >
+                      Remove
+                    </button>
                   )}
                 </li>
               ))
