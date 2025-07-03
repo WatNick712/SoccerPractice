@@ -1019,20 +1019,6 @@ function App() {
     );
   }
 
-  // Team selection modal if no team or on demand
-  if (teams.length === 0 || !selectedTeam) {
-    return (
-      <div className="modal-backdrop">
-        <div className="modal" style={{ minWidth: 340 }}>
-          <h2>Team Setup</h2>
-          <p>To use Soccer Planner, you must create or join a team.</p>
-          <button onClick={() => setTeamModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Create Team</button>
-          <button onClick={() => setJoinModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Join Team</button>
-        </div>
-      </div>
-    );
-  }
-
   // Always render the modals for team actions so they are accessible from the header
   const teamModals = <>
     {teamModalOpen && (
@@ -1091,6 +1077,23 @@ function App() {
       </div>
     )}
   </>;
+
+  // Always render teamModals so modals can appear on top of the team setup modal
+  if (teams.length === 0 || !selectedTeam) {
+    return (
+      <>
+        {teamModals}
+        <div className="modal-backdrop">
+          <div className="modal" style={{ minWidth: 340 }}>
+            <h2>Team Setup</h2>
+            <p>To use Soccer Planner, you must create or join a team.</p>
+            <button onClick={() => setTeamModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Create Team</button>
+            <button onClick={() => setJoinModalOpen(true)} style={{ margin: 8, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#fff', color: '#1976d2', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer' }}>Join Team</button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <div className="App" style={{ minHeight: '100vh', background: '#2d313a', display: 'flex', flexDirection: 'column' }}>
