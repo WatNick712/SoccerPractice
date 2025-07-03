@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './App.css';
-import { db, auth, googleProvider, teamsCollection } from './firebase';
+import { db, auth, googleProvider, teamsCollection, storage, storageRef } from './firebase';
 import { collection, doc, setDoc, addDoc, getDocs, deleteDoc, query, where, updateDoc, arrayUnion } from 'firebase/firestore';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc as firestoreDoc, setDoc as firestoreSetDoc, getDoc as firestoreGetDoc, collection as firestoreCollection } from 'firebase/firestore';
+import { uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Define CATEGORY_OPTIONS at the top
 const CATEGORY_OPTIONS = [
@@ -23,7 +24,7 @@ const CATEGORIES_DEFAULT = [
 ];
 
 // Sortable pill component for drills
-function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration }) {
+function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen }) {
   const isEditing = editingNoteDrillId === idx;
   const drillDuration = customDuration != null ? customDuration : duration;
   const isEditingDuration = editingDurationKey === idx;
@@ -70,6 +71,7 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
           </span>
         )}
         <LinkIcon url={link} />
+        <DrillImageGallery images={images} onClick={url => { setImageModalUrl(url); setImageModalOpen(true); }} />
         <br />
         <span style={{ fontWeight: 'normal', fontSize: '0.95em', color: '#444' }}>{description}</span>
         {renderStars(rank || 3)}
@@ -131,7 +133,7 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
   );
 }
 
-function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration }) {
+function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, setImageModalUrl, setImageModalOpen }) {
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
   const timeRanges = assignedDrills.map((drill) => {
@@ -180,6 +182,9 @@ function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStart
               durationInput={durationInput}
               setDurationInput={setDurationInput}
               handleSaveDrillDuration={handleSaveDrillDuration}
+              images={drill.images}
+              setImageModalUrl={setImageModalUrl}
+              setImageModalOpen={setImageModalOpen}
             />
           ))}
         </div>
@@ -189,7 +194,7 @@ function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStart
 }
 
 function SortableDrillPillWrapper(props) {
-  const { drill, onRemove, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration } = props;
+  const { drill, onRemove, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -226,6 +231,9 @@ function SortableDrillPillWrapper(props) {
       durationInput={durationInput}
       setDurationInput={setDurationInput}
       handleSaveDrillDuration={handleSaveDrillDuration}
+      images={images}
+      setImageModalUrl={setImageModalUrl}
+      setImageModalOpen={setImageModalOpen}
     />
   );
 }
@@ -338,7 +346,7 @@ function App() {
   const [drillSectionOpen, setDrillSectionOpen] = useState(false);
   const [templateSectionOpen, setTemplateSectionOpen] = useState(false);
   const [drillModalOpen, setDrillModalOpen] = useState(false);
-  const [drillForm, setDrillForm] = useState({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
+  const [drillForm, setDrillForm] = useState({ name: '', description: '', duration: '', link: '', categories: [], rank: 3, images: [] });
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [addCategoryError, setAddCategoryError] = useState('');
@@ -346,6 +354,10 @@ function App() {
   const [categoryOrder, setCategoryOrder] = useState([]);
   const [categoryDeleteError, setCategoryDeleteError] = useState('');
   const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageModalUrl, setImageModalUrl] = useState('');
 
   const sessionInfoRef = useRef(null);
 
@@ -1157,6 +1169,8 @@ function App() {
               durationInput={durationInput}
               setDurationInput={setDurationInput}
               handleSaveDrillDuration={handleSaveDrillDuration}
+              setImageModalUrl={setImageModalUrl}
+              setImageModalOpen={setImageModalOpen}
             />
             {/* Add summary at the bottom */}
             <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12, marginTop: 16, fontSize: '1rem' }}>
@@ -1432,12 +1446,14 @@ function App() {
                         <button
                           onClick={() => {
                             setDrillForm({
+                              id: drill.id, // <-- ensure this is included!
                               name: drill.name || '',
                               description: drill.description || '',
                               duration: drill.duration ? drill.duration.toString() : '',
                               link: drill.link || '',
                               categories: drill.categories || [],
                               rank: drill.rank || 3,
+                              images: drill.images || [],
                             });
                             setDrillModalOpen(true);
                           }}
@@ -1451,6 +1467,7 @@ function App() {
                     {drill.description && (
                       <div style={{ color: '#444', fontSize: '0.98em', marginTop: 2 }}>{drill.description}</div>
                     )}
+                    <DrillImageGallery images={drill.images} onClick={url => { setImageModalUrl(url); setImageModalOpen(true); }} />
                   </li>
                 ))}
               </ul>
@@ -1697,7 +1714,7 @@ function App() {
             flexDirection: 'column',
           }}>
             <button
-              onClick={() => { setDrillModalOpen(false); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 }); }}
+              onClick={() => { setDrillModalOpen(false); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3, images: [] }); }}
               style={{ position: 'absolute', top: 24, right: 24, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }}
               aria-label="Close drill modal"
             >
@@ -1715,6 +1732,7 @@ function App() {
                 categories: drillForm.categories,
                 rank: drillForm.rank,
                 teamId: selectedTeam.id,
+                images: drillForm.images,
               };
               if (drillForm.name && drillForm.id) {
                 await setDoc(doc(db, 'drills', drillForm.id), newDrill);
@@ -1723,7 +1741,7 @@ function App() {
                 const docRef = await addDoc(collection(db, 'drills'), newDrill);
                 setDrills([...drills, { id: docRef.id, ...newDrill }]);
               }
-              setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 });
+              setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3, images: [] });
               setDrillModalOpen(false);
             }}>
               <label>
@@ -1820,8 +1838,71 @@ function App() {
                 {renderStars(drillForm.rank)}
               </label>
               <br />
+              <div
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={async e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                  if (files.length === 0) return;
+                  setUploadingImages(true);
+                  setUploadError('');
+                  try {
+                    const urls = [];
+                    for (const file of files) {
+                      const fileRef = storageRef(storage, `drill-images/${selectedTeam.id}/${Date.now()}-${file.name}`);
+                      await uploadBytes(fileRef, file);
+                      const url = await getDownloadURL(fileRef);
+                      urls.push(url);
+                    }
+                    setDrillForm(f => ({ ...f, images: [...(f.images || []), ...urls] }));
+                  } catch (err) {
+                    setUploadError('Failed to upload image(s).');
+                  }
+                  setUploadingImages(false);
+                }}
+                style={{ border: '2px dashed #1976d2', borderRadius: 10, padding: 16, marginBottom: 12, textAlign: 'center', background: '#f7faff', cursor: 'pointer' }}
+              >
+                <div>Drag & drop images here, or <label style={{ color: '#1976d2', textDecoration: 'underline', cursor: 'pointer' }}>
+                  click to select
+                  <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                    onChange={async e => {
+                      const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+                      if (files.length === 0) return;
+                      setUploadingImages(true);
+                      setUploadError('');
+                      try {
+                        const urls = [];
+                        for (const file of files) {
+                          const fileRef = storageRef(storage, `drill-images/${selectedTeam.id}/${Date.now()}-${file.name}`);
+                          await uploadBytes(fileRef, file);
+                          const url = await getDownloadURL(fileRef);
+                          urls.push(url);
+                        }
+                        setDrillForm(f => ({ ...f, images: [...(f.images || []), ...urls] }));
+                      } catch (err) {
+                        setUploadError('Failed to upload image(s).');
+                      }
+                      setUploadingImages(false);
+                    }}
+                  />
+                </label></div>
+                {uploadingImages && <div style={{ color: '#1976d2', marginTop: 8 }}>Uploading...</div>}
+                {uploadError && <div style={{ color: '#c00', marginTop: 8 }}>{uploadError}</div>}
+                {drillForm.images && drillForm.images.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' }}>
+                    {drillForm.images.map((img, idx) => (
+                      <div key={img} style={{ position: 'relative' }}>
+                        <img src={img} alt="Drill" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
+                        <button type="button" onClick={() => setDrillForm(f => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))} style={{ position: 'absolute', top: 2, right: 2, background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, fontWeight: 'bold', cursor: 'pointer', fontSize: 14 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <br />
               <button type="submit">{drillForm.name ? 'Save Changes' : 'Add Drill'}</button>
-              <button type="button" onClick={() => { setDrillModalOpen(false); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3 }); }} style={{ marginLeft: 8 }}>
+              <button type="button" onClick={() => { setDrillModalOpen(false); setDrillForm({ name: '', description: '', duration: '', link: '', categories: [], rank: 3, images: [] }); }} style={{ marginLeft: 8 }}>
                 Cancel
               </button>
             </form>
@@ -1881,6 +1962,14 @@ function App() {
                 <button onClick={() => setCategoryToDelete(null)} style={{ background: '#eee', color: '#222', border: 'none', borderRadius: 6, padding: '6px 18px', fontWeight: 'bold' }}>Cancel</button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {imageModalOpen && (
+        <div className="modal-backdrop" style={{ zIndex: 15000 }}>
+          <div className="modal" style={{ zIndex: 15001, maxWidth: 700, minWidth: 320, marginTop: 90, boxShadow: '0 8px 32px rgba(25, 118, 210, 0.18)', background: '#fff', borderRadius: 18, position: 'relative', padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <button onClick={() => setImageModalOpen(false)} style={{ position: 'absolute', top: 18, right: 18, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }} aria-label="Close image modal">×</button>
+            <img src={imageModalUrl} alt="Drill Full" style={{ maxWidth: '90vw', maxHeight: '70vh', borderRadius: 12, boxShadow: '0 2px 12px rgba(25,118,210,0.10)' }} />
           </div>
         </div>
       )}
@@ -1946,6 +2035,30 @@ function CategoryRow({ cat, onDelete }) {
       <span style={{ flex: 1 }}>{cat}</span>
       <button onClick={onDelete} style={{ background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold', marginLeft: 8 }}>×</button>
     </li>
+  );
+}
+
+// Helper for image gallery icon
+function DrillImageGallery({ images, onClick }) {
+  if (!images || images.length === 0) return null;
+  const maxThumbs = 3;
+  return (
+    <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+      {images.slice(0, maxThumbs).map((img, idx) => (
+        <img
+          key={img}
+          src={img}
+          alt="Drill"
+          style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 6, border: '1.5px solid #1976d2', cursor: 'pointer', marginRight: 2 }}
+          onClick={e => { e.stopPropagation(); onClick(img); }}
+        />
+      ))}
+      {images.length > maxThumbs && (
+        <span style={{ background: '#1976d2', color: '#fff', borderRadius: 6, padding: '0 6px', fontSize: '0.95em', fontWeight: 600, marginLeft: 2 }}>
+          +{images.length - maxThumbs}
+        </span>
+      )}
+    </span>
   );
 }
 
