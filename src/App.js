@@ -1159,7 +1159,7 @@ function App() {
             <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
             <p><strong>Objective:</strong> {session.objective || <span style={{ color: '#888' }}>No objective set</span>}</p>
             {/* Session View Filter */}
-            <div style={{ margin: '16px 0 8px 0', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div className="session-radio-group" style={{ margin: '16px 0 8px 0', display: 'flex', alignItems: 'center', gap: 16 }}>
               <span style={{ fontWeight: 500 }}>Show:</span>
               <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <input
@@ -1192,7 +1192,7 @@ function App() {
                 Goal Keeper Only
               </label>
             </div>
-            <div style={{ display: 'flex', gap: 32, marginTop: 16 }}>
+            <div className="session-drill-columns" style={{ display: 'flex', gap: 32, marginTop: 16 }}>
               {(sessionViewFilter === 'both' || sessionViewFilter === 'field') && (
                 <div style={{ flex: 1 }}>
                   <h4>Field Player Drills</h4>

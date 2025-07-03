@@ -337,3 +337,53 @@
     background: #e0e0e0;
   }
 }
+
+/* Responsive styles for mobile */
+@media (max-width: 700px) {
+  .session-drill-columns {
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+  .modal {
+    width: 98vw !important;
+    min-width: unset !important;
+    max-width: 100vw !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+  .modal-backdrop {
+    align-items: flex-start !important;
+  }
+  .radio-group, .session-radio-group {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .modal input[type="text"],
+  .modal input[type="url"],
+  .modal input[type="number"],
+  .modal input[type="time"],
+  .modal textarea,
+  .modal select {
+    min-height: 44px;
+    font-size: 1.1em;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .modal button {
+    min-height: 44px;
+    font-size: 1.1em;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  .calendar-container,
+  .session-info {
+    min-width: unset !important;
+    max-width: 100vw !important;
+    padding: 8px !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* Add a class for the drill columns container in App.js: session-drill-columns */
