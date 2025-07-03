@@ -1973,6 +1973,14 @@ function App() {
           </div>
         </div>
       )}
+      {imageModalOpen && (
+        <div className="modal-backdrop" style={{ zIndex: 25000 }}>
+          <div className="modal" style={{ zIndex: 25001, maxWidth: 700, minWidth: 320, marginTop: 90, boxShadow: '0 8px 32px rgba(25, 118, 210, 0.18)', background: '#fff', borderRadius: 18, position: 'relative', padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <button onClick={() => setImageModalOpen(false)} style={{ position: 'absolute', top: 18, right: 18, fontSize: '1.5rem', background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 'bold' }} aria-label="Close image modal">×</button>
+            <img src={imageModalUrl} alt="Drill Full" style={{ maxWidth: '90vw', maxHeight: '70vh', borderRadius: 12, boxShadow: '0 2px 12px rgba(25,118,210,0.10)' }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
