@@ -134,7 +134,7 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
   );
 }
 
-function DraggableDrillPills({ assignedDrills, onReorder, onRemove, onDuplicate, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, setImageModalUrl, setImageModalOpen }) {
+function DraggableDrillPills({ assignedDrills, onReorder, onRemove, onDuplicate = () => {}, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, setImageModalUrl, setImageModalOpen }) {
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
   const timeRanges = assignedDrills.map((drill) => {
