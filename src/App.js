@@ -139,6 +139,8 @@ function DraggableDrillPills(props) {
     assignedDrills,
     assignedDrillIndices = [],
     onReorder,
+    onRemove,
+    onDuplicate,
     sessionStartTime,
     getDrillNote,
     editingNoteDrillId,
@@ -184,8 +186,8 @@ function DraggableDrillPills(props) {
             <SortableDrillPillWrapper
               key={`${drill.id}-${idx}`}
               drill={drill}
-              onRemove={() => (props.onRemove || (() => {}))(assignedDrillIndices[idx])}
-              onDuplicate={() => (props.onDuplicate || (() => {}))(assignedDrillIndices[idx])}
+              onRemove={() => onRemove(assignedDrillIndices[idx])}
+              onDuplicate={() => onDuplicate(assignedDrillIndices[idx])}
               timeRange={timeRanges[idx]}
               note={getDrillNote(drill.id, idx)}
               editingNoteDrillId={editingNoteDrillId}
@@ -1297,6 +1299,8 @@ function App() {
                     assignedDrills={fieldDrills}
                     assignedDrillIndices={fieldDrillIndices}
                     onReorder={handleReorderDrills}
+                    onRemove={handleRemoveDrillInstance}
+                    onDuplicate={handleDuplicateDrillInstance}
                     sessionStartTime={session.start}
                     getDrillNote={(_, idx) => fieldDrills[idx]?.note || ''}
                     editingNoteDrillId={editingNoteDrillId}
@@ -1322,6 +1326,8 @@ function App() {
                     assignedDrills={gkDrills}
                     assignedDrillIndices={gkDrillIndices}
                     onReorder={handleReorderDrills}
+                    onRemove={handleRemoveDrillInstance}
+                    onDuplicate={handleDuplicateDrillInstance}
                     sessionStartTime={session.start}
                     getDrillNote={(_, idx) => gkDrills[idx]?.note || ''}
                     editingNoteDrillId={editingNoteDrillId}
