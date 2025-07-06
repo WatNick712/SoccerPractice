@@ -155,6 +155,7 @@ function DraggableDrillPills(props) {
     setImageModalOpen,
   } = props;
   const onDuplicate = props.onDuplicate || (() => {});
+  console.debug(typeof onDuplicate);
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
   const timeRanges = assignedDrills.map((drill) => {
