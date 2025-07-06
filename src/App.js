@@ -134,8 +134,27 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
   );
 }
 
-function DraggableDrillPills({ assignedDrills, onReorder, onRemove, onDuplicate = () => {}, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, setImageModalUrl, setImageModalOpen }) {
-  void onDuplicate;
+function DraggableDrillPills(props) {
+  const {
+    assignedDrills,
+    onReorder,
+    onRemove,
+    sessionStartTime,
+    getDrillNote,
+    editingNoteDrillId,
+    setEditingNoteDrillId,
+    noteInput,
+    setNoteInput,
+    handleSaveDrillNote,
+    editingDurationKey,
+    setEditingDurationKey,
+    durationInput,
+    setDurationInput,
+    handleSaveDrillDuration,
+    setImageModalUrl,
+    setImageModalOpen,
+  } = props;
+  const onDuplicate = props.onDuplicate || (() => {});
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
   const timeRanges = assignedDrills.map((drill) => {
