@@ -24,7 +24,7 @@ const CATEGORIES_DEFAULT = [
 ];
 
 // Sortable pill component for drills
-function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen }) {
+function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, onDuplicate, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen }) {
   const isEditing = editingNoteDrillId === idx;
   const drillDuration = customDuration != null ? customDuration : duration;
   const isEditingDuration = editingDurationKey === idx;
@@ -129,11 +129,12 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
         )}
       </div>
       <button onClick={onRemove} style={{ marginLeft: 8, background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>×</button>
+      <button onClick={onDuplicate} style={{ marginLeft: 8, background: '#1976d2', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>⧉</button>
     </div>
   );
 }
 
-function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, setImageModalUrl, setImageModalOpen }) {
+function DraggableDrillPills({ assignedDrills, onReorder, onRemove, onDuplicate, sessionStartTime, getDrillNote, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, setImageModalUrl, setImageModalOpen }) {
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
   const timeRanges = assignedDrills.map((drill) => {
@@ -165,6 +166,7 @@ function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStart
               key={`${drill.id}-${idx}`}
               drill={drill}
               onRemove={() => onRemove(idx)}
+              onDuplicate={() => onDuplicate(idx)}
               timeRange={timeRanges[idx]}
               note={getDrillNote(drill.id, idx)}
               editingNoteDrillId={editingNoteDrillId}
@@ -194,7 +196,7 @@ function DraggableDrillPills({ assignedDrills, onReorder, onRemove, sessionStart
 }
 
 function SortableDrillPillWrapper(props) {
-  const { drill, onRemove, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen } = props;
+  const { drill, onRemove, onDuplicate, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -214,6 +216,7 @@ function SortableDrillPillWrapper(props) {
       style={style}
       isDragging={isDragging}
       onRemove={onRemove}
+      onDuplicate={props.onDuplicate}
       timeRange={timeRange}
       link={drill.link}
       note={note}
@@ -987,6 +990,19 @@ function App() {
     }
   };
 
+  const handleDuplicateDrillInstance = async (idx) => {
+    if (!session || !session.drillAssignments) return;
+    const newAssignments = [...session.drillAssignments];
+    const toDuplicate = { ...newAssignments[idx] };
+    newAssignments.splice(idx + 1, 0, toDuplicate);
+    const updatedSession = { ...session, drillAssignments: newAssignments };
+    await setDoc(doc(collection(db, 'sessions'), session.id), updatedSession);
+    setSessions((prev) => ({
+      ...prev,
+      [date.toDateString()]: { ...updatedSession, id: session.id },
+    }));
+  };
+
   if (authLoading) {
     return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
   }
@@ -1254,6 +1270,7 @@ function App() {
                       const globalIdx = assignedDrills.findIndex((d, i) => d.id === fieldDrills[removeIdx].id && d.isGoalKeeper === false && i >= 0);
                       await handleRemoveDrillInstance(globalIdx);
                     }}
+                    onDuplicate={handleDuplicateDrillInstance}
                     sessionStartTime={session.start}
                     getDrillNote={(_, idx) => fieldDrills[idx]?.note || ''}
                     editingNoteDrillId={editingNoteDrillId}
@@ -1283,6 +1300,7 @@ function App() {
                       const globalIdx = assignedDrills.findIndex((d, i) => d.id === gkDrills[removeIdx].id && d.isGoalKeeper === true && i >= 0);
                       await handleRemoveDrillInstance(globalIdx);
                     }}
+                    onDuplicate={handleDuplicateDrillInstance}
                     sessionStartTime={session.start}
                     getDrillNote={(_, idx) => gkDrills[idx]?.note || ''}
                     editingNoteDrillId={editingNoteDrillId}
