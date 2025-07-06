@@ -128,7 +128,7 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
           </span>
         )}
       </div>
-      <button onClick={onRemove} style={{ marginLeft: 8, background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>×</button>
+      <button onClick={() => onRemove()} style={{ marginLeft: 8, background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>×</button>
       <button onClick={onDuplicate} style={{ marginLeft: 8, background: '#1976d2', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>⧉</button>
     </div>
   );
@@ -137,6 +137,7 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
 function DraggableDrillPills(props) {
   const {
     assignedDrills,
+    assignedDrillIndices = [],
     onReorder,
     onRemove,
     sessionStartTime,
@@ -154,8 +155,6 @@ function DraggableDrillPills(props) {
     setImageModalUrl,
     setImageModalOpen,
   } = props;
-  const onDuplicate = props.onDuplicate || (() => {});
-  console.debug(typeof onDuplicate);
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
   const timeRanges = assignedDrills.map((drill) => {
@@ -186,8 +185,8 @@ function DraggableDrillPills(props) {
             <SortableDrillPillWrapper
               key={`${drill.id}-${idx}`}
               drill={drill}
-              onRemove={() => onRemove(idx)}
-              onDuplicate={() => onDuplicate(idx)}
+              onRemove={() => (props.onRemove || (() => {}))(assignedDrillIndices[idx])}
+              onDuplicate={() => (props.onDuplicate || (() => {}))(assignedDrillIndices[idx])}
               timeRange={timeRanges[idx]}
               note={getDrillNote(drill.id, idx)}
               editingNoteDrillId={editingNoteDrillId}
@@ -236,7 +235,7 @@ function SortableDrillPillWrapper(props) {
       setNodeRef={setNodeRef}
       style={style}
       isDragging={isDragging}
-      onRemove={onRemove}
+      onRemove={props.onRemove}
       onDuplicate={props.onDuplicate}
       timeRange={timeRange}
       link={drill.link}
@@ -641,8 +640,20 @@ function App() {
         return drill ? { ...drill, ...a } : null;
       }).filter(Boolean)
     : [];
-  const fieldDrills = assignedDrills.filter(d => !d.isGoalKeeper);
-  const gkDrills = assignedDrills.filter(d => d.isGoalKeeper);
+  // Build fieldDrills and gkDrills with their indices in assignedDrills
+  const fieldDrillIndices = [];
+  const fieldDrills = [];
+  const gkDrillIndices = [];
+  const gkDrills = [];
+  assignedDrills.forEach((d, i) => {
+    if (!d.isGoalKeeper) {
+      fieldDrills.push(d);
+      fieldDrillIndices.push(i);
+    } else {
+      gkDrills.push(d);
+      gkDrillIndices.push(i);
+    }
+  });
   // Use customDuration for totalDrillTime
   const totalDrillTime = fieldDrills.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
   const totalGKDrillTime = gkDrills.reduce((sum, d) => sum + (d.customDuration != null ? d.customDuration : d.duration || 0), 0);
@@ -1285,10 +1296,9 @@ function App() {
                   <h4>Field Player Drills</h4>
                   <DraggableDrillPills
                     assignedDrills={fieldDrills}
+                    assignedDrillIndices={fieldDrillIndices}
                     onReorder={handleReorderDrills}
-                    onRemove={async (removeIdx) => {
-                      // Remove from fieldDrills index
-                      const globalIdx = assignedDrills.findIndex((d, i) => d.id === fieldDrills[removeIdx].id && d.isGoalKeeper === false && i >= 0);
+                    onRemove={async (globalIdx) => {
                       await handleRemoveDrillInstance(globalIdx);
                     }}
                     onDuplicate={handleDuplicateDrillInstance}
@@ -1315,10 +1325,9 @@ function App() {
                   <h4>Goal Keeper Drills</h4>
                   <DraggableDrillPills
                     assignedDrills={gkDrills}
+                    assignedDrillIndices={gkDrillIndices}
                     onReorder={handleReorderDrills}
-                    onRemove={async (removeIdx) => {
-                      // Remove from gkDrills index
-                      const globalIdx = assignedDrills.findIndex((d, i) => d.id === gkDrills[removeIdx].id && d.isGoalKeeper === true && i >= 0);
+                    onRemove={async (globalIdx) => {
                       await handleRemoveDrillInstance(globalIdx);
                     }}
                     onDuplicate={handleDuplicateDrillInstance}
