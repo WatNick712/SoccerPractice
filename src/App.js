@@ -139,7 +139,6 @@ function DraggableDrillPills(props) {
     assignedDrills,
     assignedDrillIndices = [],
     onReorder,
-    onRemove,
     sessionStartTime,
     getDrillNote,
     editingNoteDrillId,
@@ -216,7 +215,7 @@ function DraggableDrillPills(props) {
 }
 
 function SortableDrillPillWrapper(props) {
-  const { drill, onRemove, onDuplicate, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen } = props;
+  const { drill, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -1298,10 +1297,6 @@ function App() {
                     assignedDrills={fieldDrills}
                     assignedDrillIndices={fieldDrillIndices}
                     onReorder={handleReorderDrills}
-                    onRemove={async (globalIdx) => {
-                      await handleRemoveDrillInstance(globalIdx);
-                    }}
-                    onDuplicate={handleDuplicateDrillInstance}
                     sessionStartTime={session.start}
                     getDrillNote={(_, idx) => fieldDrills[idx]?.note || ''}
                     editingNoteDrillId={editingNoteDrillId}
@@ -1327,10 +1322,6 @@ function App() {
                     assignedDrills={gkDrills}
                     assignedDrillIndices={gkDrillIndices}
                     onReorder={handleReorderDrills}
-                    onRemove={async (globalIdx) => {
-                      await handleRemoveDrillInstance(globalIdx);
-                    }}
-                    onDuplicate={handleDuplicateDrillInstance}
                     sessionStartTime={session.start}
                     getDrillNote={(_, idx) => gkDrills[idx]?.note || ''}
                     editingNoteDrillId={editingNoteDrillId}
