@@ -11,12 +11,6 @@ import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc as firestoreDoc, setDoc as firestoreSetDoc, getDoc as firestoreGetDoc, collection as firestoreCollection } from 'firebase/firestore';
 import { uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// Define CATEGORY_OPTIONS at the top
-const CATEGORY_OPTIONS = [
-  'Conditioning', 'Defending', 'Finishing', 'Indoor Gym', 'Overloads', 'Passing',
-  'Possession', 'Position and Shape', 'Pressing', 'Scanning', 'Transition', 'Warmup', 'Water Break'
-];
-
 // Default categories for new teams
 const CATEGORIES_DEFAULT = [
   'Conditioning', 'Defending', 'Finishing', 'Indoor Gym', 'Overloads', 'Passing',
