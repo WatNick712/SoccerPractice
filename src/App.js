@@ -1557,7 +1557,7 @@ function App() {
               <span>Filter by Category:</span>
               <select value={drillListCategoryFilter} onChange={e => setDrillListCategoryFilter(e.target.value)} style={{ minWidth: 120 }}>
                 <option value="">All</option>
-                {CATEGORY_OPTIONS.map(cat => (
+                {teamCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
@@ -1722,7 +1722,7 @@ function App() {
                   <span>Filter by Category:</span>
                   <select value={drillCategoryFilter} onChange={e => setDrillCategoryFilter(e.target.value)} style={{ minWidth: 120 }}>
                     <option value="">All</option>
-                    {CATEGORY_OPTIONS.map(cat => (
+                    {teamCategories.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
