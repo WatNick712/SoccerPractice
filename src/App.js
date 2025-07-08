@@ -18,7 +18,7 @@ const CATEGORIES_DEFAULT = [
 ];
 
 // Sortable pill component for drills
-function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, onDuplicate, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen }) {
+function SortableDrillPill({ id, name, duration, description, listeners, attributes, setNodeRef, style, isDragging, onRemove, onDuplicate, timeRange, link, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, categories, rank, idx, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen, readOnly }) {
   const isEditing = editingNoteDrillId === idx;
   const drillDuration = customDuration != null ? customDuration : duration;
   const isEditingDuration = editingDurationKey === idx;
@@ -41,22 +41,24 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
       }}
     >
       {/* Drag handle */}
-      <span
-        {...attributes}
-        {...listeners}
-        style={{
-          cursor: 'grab',
-          marginRight: 12,
-          fontSize: '1.2em',
-          userSelect: 'none',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-        tabIndex={0}
-        aria-label="Drag to reorder"
-      >
-        ≡
-      </span>
+      {!readOnly && (
+        <span
+          {...attributes}
+          {...listeners}
+          style={{
+            cursor: 'grab',
+            marginRight: 12,
+            fontSize: '1.2em',
+            userSelect: 'none',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          tabIndex={0}
+          aria-label="Drag to reorder"
+        >
+          ≡
+        </span>
+      )}
       <div style={{ flex: 1 }}>
         {name} ({drillDuration} min)
         {timeRange && (
@@ -77,7 +79,8 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
           </span>
         )}
         <br />
-        {isEditing ? (
+        {/* Hide note and duration editing for readOnly */}
+        {!readOnly && isEditing ? (
           <span>
             <input
               type="text"
@@ -94,16 +97,16 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
             {note && (
               <span>
                 📝 {note}
-                <button onClick={() => { setEditingNoteDrillId(idx); setNoteInput(note || ''); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>✏️</button>
-                <button onClick={() => handleSaveDrillNote('')} style={{ fontSize: '0.95em', marginLeft: 4 }}>🗑️</button>
+                {!readOnly && <button onClick={() => { setEditingNoteDrillId(idx); setNoteInput(note || ''); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>✏️</button>}
+                {!readOnly && <button onClick={() => handleSaveDrillNote('')} style={{ fontSize: '0.95em', marginLeft: 4 }}>🗑️</button>}
               </span>
             )}
-            {!note && (
+            {!note && !readOnly && (
               <button onClick={() => { setEditingNoteDrillId(idx); setNoteInput(note || ''); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>✏️</button>
             )}
           </span>
         )}
-        {isEditingDuration ? (
+        {!readOnly && isEditingDuration ? (
           <span>
             <input
               type="number"
@@ -118,12 +121,13 @@ function SortableDrillPill({ id, name, duration, description, listeners, attribu
         ) : (
           <span style={{ marginLeft: 8 }}>
             <span>{drillDuration} min</span>
-            <button onClick={() => { setEditingDurationKey(idx); setDurationInput((customDuration != null ? customDuration : duration).toString()); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>⏰</button>
+            {!readOnly && <button onClick={() => { setEditingDurationKey(idx); setDurationInput((customDuration != null ? customDuration : duration).toString()); }} style={{ fontSize: '0.95em', marginLeft: 4 }}>⏰</button>}
           </span>
         )}
       </div>
-      <button onClick={() => onRemove()} style={{ marginLeft: 8, background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>×</button>
-      <button onClick={onDuplicate} style={{ marginLeft: 8, background: '#1976d2', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>⧉</button>
+      {/* Remove and duplicate buttons only for admin */}
+      {!readOnly && <button onClick={() => onRemove()} style={{ marginLeft: 8, background: '#c00', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>×</button>}
+      {!readOnly && <button onClick={onDuplicate} style={{ marginLeft: 8, background: '#1976d2', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', fontWeight: 'bold' }}>⧉</button>}
     </div>
   );
 }
@@ -149,6 +153,7 @@ function DraggableDrillPills(props) {
     handleSaveDrillDuration,
     setImageModalUrl,
     setImageModalOpen,
+    readOnly = false,
   } = props;
   // Calculate time ranges for each drill
   let runningTime = sessionStartTime;
@@ -159,6 +164,42 @@ function DraggableDrillPills(props) {
     runningTime = end;
     return { start, end };
   });
+  if (readOnly) {
+    // Render as static list, no drag-and-drop
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: 12 }}>
+        {assignedDrills.map((drill, idx) => (
+          <SortableDrillPillWrapper
+            key={`${drill.id}-${idx}`}
+            drill={drill}
+            onRemove={() => {}}
+            onDuplicate={() => {}}
+            timeRange={timeRanges[idx]}
+            note={getDrillNote(drill.id, idx)}
+            editingNoteDrillId={editingNoteDrillId}
+            setEditingNoteDrillId={setEditingNoteDrillId}
+            noteInput={noteInput}
+            setNoteInput={setNoteInput}
+            handleSaveDrillNote={(note) => handleSaveDrillNote(idx, note)}
+            categories={drill.categories}
+            rank={drill.rank}
+            idx={idx}
+            dndId={`${drill.id}-${idx}`}
+            customDuration={drill.customDuration}
+            editingDurationKey={editingDurationKey}
+            setEditingDurationKey={setEditingDurationKey}
+            durationInput={durationInput}
+            setDurationInput={setDurationInput}
+            handleSaveDrillDuration={handleSaveDrillDuration}
+            images={drill.images}
+            setImageModalUrl={setImageModalUrl}
+            setImageModalOpen={setImageModalOpen}
+            readOnly={true}
+          />
+        ))}
+      </div>
+    );
+  }
   return (
     <DndContext
       collisionDetection={closestCenter}
@@ -202,6 +243,7 @@ function DraggableDrillPills(props) {
               images={drill.images}
               setImageModalUrl={setImageModalUrl}
               setImageModalOpen={setImageModalOpen}
+              readOnly={readOnly}
             />
           ))}
         </div>
@@ -211,7 +253,7 @@ function DraggableDrillPills(props) {
 }
 
 function SortableDrillPillWrapper(props) {
-  const { drill, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen } = props;
+  const { drill, timeRange, note, editingNoteDrillId, setEditingNoteDrillId, noteInput, setNoteInput, handleSaveDrillNote, idx, dndId, customDuration, editingDurationKey, setEditingDurationKey, durationInput, setDurationInput, handleSaveDrillDuration, images, setImageModalUrl, setImageModalOpen, readOnly } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -252,6 +294,7 @@ function SortableDrillPillWrapper(props) {
       images={images}
       setImageModalUrl={setImageModalUrl}
       setImageModalOpen={setImageModalOpen}
+      readOnly={readOnly}
     />
   );
 }
@@ -380,6 +423,7 @@ function App() {
   const [gkDrillCheckboxes, setGKDrillCheckboxes] = useState({});
   // Add state for session view filter
   const [sessionViewFilter, setSessionViewFilter] = useState('both');
+  const [userRole, setUserRole] = useState('member');
 
   const sessionInfoRef = useRef(null);
 
@@ -506,8 +550,12 @@ function App() {
   const [showSessionDetails, setShowSessionDetails] = useState(false);
 
   const handleDateClick = (value) => {
-    setDate(value);
     const sessionForDate = sessions[value.toDateString()];
+    if (userRole === 'member' && !sessionForDate) {
+      // Members cannot create or edit sessions, do nothing if no session
+      return;
+    }
+    setDate(value);
     if (sessionForDate) {
       setShowSessionDetails(true);
       setTimeout(() => {
@@ -517,7 +565,7 @@ function App() {
       }, 100);
       setModalOpen(false);
     } else {
-    setModalOpen(true);
+      setModalOpen(true);
       setShowSessionDetails(false);
     }
   };
@@ -849,6 +897,7 @@ function App() {
       name: teamNameInput,
       createdBy: user.uid,
       members: [user.uid],
+      roles: { [user.uid]: 'admin' }, // Add roles object
       inviteCode,
       createdAt: new Date().toISOString(),
       categories: CATEGORIES_DEFAULT,
@@ -873,13 +922,16 @@ function App() {
     }
     const teamDoc = snapshot.docs[0];
     const teamData = teamDoc.data();
+    let updatedRoles = { ...teamData.roles };
     if (!teamData.members.includes(user.uid)) {
       await updateDoc(doc(teamsCollection, teamDoc.id), {
         members: arrayUnion(user.uid),
+        roles: { ...teamData.roles, [user.uid]: 'member' }, // Add as member
       });
+      updatedRoles[user.uid] = 'member';
     }
-    setTeams([...teams, { id: teamDoc.id, ...teamData, members: [...teamData.members, user.uid] }]);
-    setSelectedTeam({ id: teamDoc.id, ...teamData, members: [...teamData.members, user.uid] });
+    setTeams([...teams, { id: teamDoc.id, ...teamData, members: [...teamData.members, user.uid], roles: updatedRoles }]);
+    setSelectedTeam({ id: teamDoc.id, ...teamData, members: [...teamData.members, user.uid], roles: updatedRoles });
     setJoinModalOpen(false);
     setInviteCodeInput('');
     setTeamLoading(false);
@@ -1030,6 +1082,27 @@ function App() {
     }));
   };
 
+  // Track the current user's role for the selected team
+  useEffect(() => {
+    if (selectedTeam && user && selectedTeam.roles && selectedTeam.roles[user.uid]) {
+      setUserRole(selectedTeam.roles[user.uid]);
+    } else if (selectedTeam && user && selectedTeam.createdBy === user.uid) {
+      setUserRole('admin');
+    } else {
+      setUserRole('member');
+    }
+  }, [selectedTeam, user]);
+
+  // In Team Members modal, for each member, if userRole is admin and not self, show a dropdown to change role
+  // Add a handler to update role in Firestore and state
+  const handleChangeMemberRole = async (memberUid, newRole) => {
+    if (!selectedTeam) return;
+    const updatedRoles = { ...selectedTeam.roles, [memberUid]: newRole };
+    await updateDoc(doc(teamsCollection, selectedTeam.id), { roles: updatedRoles });
+    setSelectedTeam(prev => ({ ...prev, roles: updatedRoles }));
+    setTeams(prev => prev.map(team => team.id === selectedTeam.id ? { ...team, roles: updatedRoles } : team));
+  };
+
   if (authLoading) {
     return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
   }
@@ -1146,6 +1219,17 @@ function App() {
                       Remove
                     </button>
                   )}
+                  {/* Role dropdown for admins (not self) */}
+                  {userRole === 'admin' && info.uid !== user.uid && (
+                    <select
+                      value={selectedTeam.roles && selectedTeam.roles[info.uid] ? selectedTeam.roles[info.uid] : 'member'}
+                      onChange={e => handleChangeMemberRole(info.uid, e.target.value)}
+                      style={{ marginLeft: 8, borderRadius: 6, border: '1px solid #1976d2', fontWeight: 'bold', fontSize: '0.95em', padding: '2px 8px' }}
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="member">Member</option>
+                    </select>
+                  )}
                 </li>
               ))
             ) : (
@@ -1243,14 +1327,16 @@ function App() {
             <p><strong>Time Left in Session:</strong> {timeLeft} min</p>
             <p><strong>Objective:</strong> {session.objective || <span style={{ color: '#888' }}>No objective set</span>}</p>
             {/* Add Drills Button above the filter */}
-            <button
-              onClick={() => { setModalOpen(true); setShowSessionDetails(false); }}
-              style={{ marginBottom: 12, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
-              onMouseOver={e => { e.target.style.background = '#1251a3'; }}
-              onMouseOut={e => { e.target.style.background = '#1976d2'; }}
-            >
-              Add Drills
-            </button>
+            {userRole === 'admin' && (
+              <button
+                onClick={() => { setModalOpen(true); setShowSessionDetails(false); }}
+                style={{ marginBottom: 12, padding: '8px 24px', borderRadius: 8, border: '1.5px solid #1976d2', background: '#1976d2', color: '#fff', fontWeight: 'bold', fontSize: '1.1em', cursor: 'pointer', boxShadow: '0 2px 6px rgba(25, 118, 210, 0.08)', transition: 'background 0.2s, color 0.2s' }}
+                onMouseOver={e => { e.target.style.background = '#1251a3'; }}
+                onMouseOut={e => { e.target.style.background = '#1976d2'; }}
+              >
+                Add Drills
+              </button>
+            )}
             {/* Session View Filter */}
             <div className="session-radio-group" style={{ margin: '16px 0 8px 0', display: 'flex', alignItems: 'center', gap: 16 }}>
               <span style={{ fontWeight: 500 }}>Show:</span>
@@ -1309,6 +1395,7 @@ function App() {
                     handleSaveDrillDuration={handleSaveDrillDuration}
                     setImageModalUrl={setImageModalUrl}
                     setImageModalOpen={setImageModalOpen}
+                    readOnly={userRole !== 'admin'}
                   />
                   <div><strong>Total Field Drill Time:</strong> {totalDrillTime} min</div>
                 </div>
@@ -1336,6 +1423,7 @@ function App() {
                     handleSaveDrillDuration={handleSaveDrillDuration}
                     setImageModalUrl={setImageModalUrl}
                     setImageModalOpen={setImageModalOpen}
+                    readOnly={userRole !== 'admin'}
                   />
                   <div><strong>Total GK Drill Time:</strong> {totalGKDrillTime} min</div>
                 </div>
@@ -1355,8 +1443,12 @@ function App() {
             >
               Save/Close
             </button>
-            <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
-            <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
+            {userRole === 'admin' && (
+              <>
+                <button onClick={handleSaveAsTemplate} style={{ float: 'right', marginBottom: 8 }}>Save as Template</button>
+                <button onClick={handleDeleteSession} style={{ float: 'right', marginBottom: 8, marginRight: 8, background: '#c00', color: '#fff' }}>Delete Session</button>
+              </>
+            )}
             {/* Spacer to prevent overlap with fixed bottom bar */}
             <div style={{ height: 120 }} />
           </div>
@@ -1491,6 +1583,7 @@ function App() {
           >
             Drills/Exercises
           </button>
+          {userRole === 'admin' && (
             <button
               onClick={() => setTemplateSectionOpen(true)}
               style={{
@@ -1508,6 +1601,7 @@ function App() {
             >
               Previous Practice Sessions
             </button>
+          )}
           </div>
         </>
       )}
@@ -1612,25 +1706,29 @@ function App() {
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button
-                          onClick={() => {
-                            setDrillForm({
-                              id: drill.id, // <-- ensure this is included!
-                              name: drill.name || '',
-                              description: drill.description || '',
-                              duration: drill.duration ? drill.duration.toString() : '',
-                              link: drill.link || '',
-                              categories: drill.categories || [],
-                              rank: drill.rank || 3,
-                              images: drill.images || [],
-                            });
-                            setDrillModalOpen(true);
-                          }}
-                          style={{ marginLeft: 8 }}
-                        >
-                          Edit
-                        </button>
-                        <button onClick={() => handleDeleteDrill(drill.id)} style={{ marginLeft: 8 }}>Delete</button>
+                        {userRole === 'admin' && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setDrillForm({
+                                  id: drill.id, // <-- ensure this is included!
+                                  name: drill.name || '',
+                                  description: drill.description || '',
+                                  duration: drill.duration ? drill.duration.toString() : '',
+                                  link: drill.link || '',
+                                  categories: drill.categories || [],
+                                  rank: drill.rank || 3,
+                                  images: drill.images || [],
+                                });
+                                setDrillModalOpen(true);
+                              }}
+                              style={{ marginLeft: 8 }}
+                            >
+                              Edit
+                            </button>
+                            <button onClick={() => handleDeleteDrill(drill.id)} style={{ marginLeft: 8 }}>Delete</button>
+                          </>
+                        )}
                       </div>
                     </div>
                     {drill.description && (
@@ -1986,7 +2084,7 @@ function App() {
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                {userRole === 'admin' && (
                   <button
                     type="button"
                     onClick={() => { setAddCategoryModalOpen(true); setNewCategoryInput(''); setAddCategoryError(''); }}
@@ -1995,6 +2093,8 @@ function App() {
                   >
                     Add Category
                   </button>
+                )}
+                {userRole === 'admin' && (
                   <button
                     type="button"
                     onClick={openManageCategoriesModal}
@@ -2003,7 +2103,7 @@ function App() {
                   >
                     Manage Categories
                   </button>
-                </div>
+                )}
               </label>
               <br />
               <label>
@@ -2013,6 +2113,7 @@ function App() {
                   value={drillForm.rank}
                   onChange={e => setDrillForm({ ...drillForm, rank: parseInt(e.target.value, 10) })}
                   style={{ width: '100px', marginBottom: 8 }}
+                  disabled={userRole !== 'admin'}
                 >
                   {[1, 2, 3, 4, 5].map(n => (
                     <option key={n} value={n}>{n}</option>
