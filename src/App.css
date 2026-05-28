@@ -1,11 +1,14 @@
 .App {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
   background: #282c34;
-  gap: 2rem;
-  flex-wrap: wrap;
+}
+
+.App > .app-shell {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .App-logo {
@@ -43,61 +46,252 @@
   }
 }
 
+/* Full-height shell: header + scrollable main + footer (no fixed overlap) */
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: #2d313a;
+}
+
+.app-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  background: rgba(25, 118, 210, 0.04);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 72px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+}
+
+.app-header__left,
+.app-header__right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.app-main-calendar {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 16px;
+}
+
+.app-bottom-bar {
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(25, 118, 210, 0.04);
+  padding: 16px 24px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  z-index: 20;
+  box-shadow: 0 -2px 8px rgba(25, 118, 210, 0.04);
+}
+
+.app-bottom-bar__btn {
+  padding: 12px 32px;
+  border-radius: 8px;
+  border: none;
+  background: #1976d2;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.10);
+  transition: background 0.2s, color 0.2s;
+}
+
 .calendar-container {
   width: 100%;
-  max-width: 800px;
-  height: 80vh;
-  padding: 0;
+  max-width: 600px;
+  margin: 0 auto 8px;
+  padding: 20px;
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   box-sizing: border-box;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 .react-calendar {
   width: 100% !important;
-  height: 100% !important;
-  min-height: 400px;
-  font-size: 2rem;
+  max-width: 100%;
+  height: auto !important;
+  min-height: 0;
+  font-size: 1.1rem;
   border: none;
   background: transparent;
 }
 
+.react-calendar__month-view__days__day {
+  padding: 0.4em 0.15em !important;
+}
+
 .react-calendar__navigation__label {
-  height: 6rem !important;
-  min-height: 6rem !important;
+  height: auto !important;
+  min-height: 2.75rem !important;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .react-calendar__navigation__label__labelText {
-  font-size: 5.0rem !important;
+  font-size: 1.75rem !important;
   font-weight: bold;
-  line-height: 1;
+  line-height: 1.2;
+}
+
+.session-day-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto;
+  pointer-events: none;
+  line-height: 1.1;
+}
+
+.session-day-progress__ball {
+  width: 28px;
+  height: 28px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 50%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.session-day-progress__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #1976d2;
+  text-align: center;
+  max-width: 56px;
+  word-break: break-word;
+}
+
+.session-day-progress__label--complete {
+  color: #2e7d32;
+  font-size: 0.58rem;
+  letter-spacing: -0.02em;
+}
+
+/* Selected day: high-contrast text on blue tile background */
+.react-calendar__tile--active,
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background: #1976d2 !important;
+  color: #fff !important;
+}
+
+.react-calendar__tile--active abbr,
+.react-calendar__month-view__days__day--weekend.react-calendar__tile--active abbr {
+  color: #fff !important;
+}
+
+.react-calendar__tile--active .session-day-progress__label {
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.react-calendar__tile--active .session-day-progress__label--complete {
+  color: #e8f5e9 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.react-calendar__tile--active .session-day-progress__ball {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.react-calendar__tile--now.react-calendar__tile--active,
+.react-calendar__tile--now.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--now.react-calendar__tile--active:enabled:focus {
+  background: #1976d2 !important;
+  color: #fff !important;
 }
 
 @media (max-width: 900px) {
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 12px;
+  }
+
+  .app-header__left,
+  .app-header__right {
+    justify-content: center;
+  }
+
+  .app-main-calendar {
+    padding: 8px;
+  }
+
+  .app-bottom-bar {
+    gap: 10px;
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .app-bottom-bar__btn {
+    flex: 1 1 auto;
+    min-width: 140px;
+    font-size: 1rem;
+    padding: 10px 16px;
+  }
+
   .calendar-container {
     max-width: 100%;
-    height: auto;
-    min-height: 0;
+    padding: 12px;
     border-radius: 0;
     box-shadow: none;
   }
   .react-calendar {
-    font-size: 1rem;
-    min-height: 300px;
+    font-size: 0.95rem;
   }
   .react-calendar__navigation__label {
-    height: 2.5rem !important;
-    min-height: 2.5rem !important;
+    min-height: 2.25rem !important;
   }
   .react-calendar__navigation__label__labelText {
-    font-size: 1.5rem !important;
+    font-size: 1.35rem !important;
+  }
+
+  .session-day-progress__ball {
+    width: 22px;
+    height: 22px;
+  }
+
+  .session-day-progress__label {
+    font-size: 0.55rem;
+    max-width: 48px;
+  }
+
+  .session-day-progress__label--complete {
+    font-size: 0.5rem;
   }
 }
 

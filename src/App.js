@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './App.css';
-import { db, auth, googleProvider, teamsCollection, storage, storageRef } from './firebase';
+import { db, auth, googleProvider, teamsCollection, storage, storageRef, shouldUseGoogleAuthRedirect, getAuthSignInErrorMessage, HOSTING_DOMAINS } from './firebase';
 import { collection, doc, setDoc, addDoc, getDocs, deleteDoc, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc as firestoreDoc, setDoc as firestoreSetDoc, getDoc as firestoreGetDoc, collection as firestoreCollection } from 'firebase/firestore';
 import { uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -340,33 +340,23 @@ function renderStars(rank) {
 }
 
 // Soccer ball image progress for calendar
-function SoccerBallImageProgress({ percent }) {
-  const size = 32;
-  const fillHeight = percent >= 1 ? size : size * percent;
+function SessionDayProgress({ planned, total }) {
+  const percent = total > 0 ? Math.round((planned / total) * 100) : 0;
+  const isComplete = percent >= 100;
+  const label = isComplete ? 'Good to Go' : `${percent}%`;
+
   return (
-    <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
-      <div style={{
-        position: 'absolute',
-        top: 0, left: 0, width: size, height: size,
-        backgroundImage: 'url(/soccer-ball.png)',
-        backgroundSize: 'cover',
-        borderRadius: '50%',
-        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.10))',
-      }} />
-      {percent > 0 && (
-        <div style={{
-          position: 'absolute',
-          left: 0,
-          bottom: 0,
-          width: size,
-          height: fillHeight,
-          background: 'rgba(76, 175, 80, 0.7)',
-          borderRadius: '0 0 50% 50% / 0 0 100% 100%',
-          zIndex: 2,
-          transition: 'height 0.3s',
-          pointerEvents: 'none',
-        }} />
-      )}
+    <div className="session-day-progress" title={isComplete ? 'Session fully planned' : `${percent}% of session time planned`}>
+      <div
+        className="session-day-progress__ball"
+        style={{
+          backgroundImage: 'url(/soccer-ball.png)',
+        }}
+        aria-hidden="true"
+      />
+      <span className={`session-day-progress__label${isComplete ? ' session-day-progress__label--complete' : ''}`}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -375,6 +365,8 @@ function App() {
   // All hooks at the top level
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [signInPending, setSignInPending] = useState(false);
+  const [authError, setAuthError] = useState('');
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [teamModalOpen, setTeamModalOpen] = useState(false);
@@ -821,14 +813,11 @@ function App() {
 
   // Helper for calendar tile content
   const calendarTileContent = ({ date: calDate, view }) => {
-    // Debug: print session keys and current calendar month
-    if (view === 'month' && calDate.getDate() === 1) {
-      console.log('Calendar month:', calendarMonth.toDateString());
-      console.log('Session keys:', Object.keys(sessions));
-    }
     if (view === 'month' && sessions[calDate.toDateString()]) {
       const session = sessions[calDate.toDateString()];
       const total = session.totalMinutes || 0;
+      if (total <= 0) return null;
+
       let planned = 0;
       if (session.drillAssignments && Array.isArray(session.drillAssignments)) {
         planned = session.drillAssignments.reduce((sum, d) => {
@@ -837,27 +826,34 @@ function App() {
           return sum + (duration || 0);
         }, 0);
       }
-      console.log('[CAL TILE]', calDate.toDateString(), { session, total, planned });
-      // Only show icon if session has drills and total > 0
-      if (planned > 0 && total > 0) {
-        let percent;
-        if (planned >= total) {
-          percent = 1;
-      } else {
-          percent = planned / total;
-          if (percent < 0) percent = 0;
-      }
-      return <SoccerBallImageProgress percent={percent} />;
-      }
+
+      return <SessionDayProgress planned={planned} total={total} />;
     }
     return null;
   };
 
   const handleSignIn = async () => {
+    setAuthError('');
+    setSignInPending(true);
     try {
+      if (shouldUseGoogleAuthRedirect()) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      alert('Sign in failed: ' + err.message);
+      if (err?.code === 'auth/popup-blocked') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectErr) {
+          setAuthError(getAuthSignInErrorMessage(redirectErr));
+        }
+      } else if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
+        setAuthError(getAuthSignInErrorMessage(err));
+      }
+    } finally {
+      setSignInPending(false);
     }
   };
 
@@ -937,13 +933,48 @@ function App() {
     setTeamLoading(false);
   };
 
-  // Firebase authentication listener
+  // Mobile Google redirect requires firebaseapp.com (OAuth + same-origin); auto-switch from web.app
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
+    if (typeof window === 'undefined') return;
+    const { hostname, pathname, search, hash } = window.location;
+    if (hostname === HOSTING_DOMAINS.webApp && shouldUseGoogleAuthRedirect()) {
+      window.location.replace(
+        `https://${HOSTING_DOMAINS.firebaseApp}${pathname}${search}${hash}`
+      );
+    }
+  }, []);
+
+  // Complete Google redirect first (mobile), then listen for auth session
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    const initAuth = async () => {
+      try {
+        await getRedirectResult(auth);
+      } catch (err) {
+        if (!cancelled && err?.code !== 'auth/popup-closed-by-user') {
+          setAuthError(getAuthSignInErrorMessage(err));
+        }
+      }
+
+      if (cancelled) return;
+
+      unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (cancelled) return;
+        setUser(firebaseUser);
+        if (firebaseUser) setAuthError('');
+      });
+
+      if (!cancelled) setAuthLoading(false);
+    };
+
+    initAuth();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   // Save user info to Firestore on sign-in
@@ -1104,7 +1135,7 @@ function App() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: 32, textAlign: 'center' }}>Loading authentication...</div>;
+    return <div style={{ padding: 32, textAlign: 'center', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading…</div>;
   }
   if (!user) {
     return (
@@ -1135,30 +1166,47 @@ function App() {
           <div style={{ fontSize: '1.1em', color: '#444', marginBottom: 32, textAlign: 'center', fontWeight: 500 }}>
             Plan, organize, and track your soccer practices.<br />Sign in to get started!
           </div>
+          {authError && (
+            <p style={{ color: '#c62828', fontSize: '0.95em', marginBottom: 16, textAlign: 'center', lineHeight: 1.4, maxWidth: 320 }}>
+              {authError}
+            </p>
+          )}
           <button
+            type="button"
             onClick={handleSignIn}
+            disabled={signInPending}
             style={{
               padding: '12px 32px',
               borderRadius: 8,
               border: 'none',
-              background: '#fff',
+              background: signInPending ? '#e3f0fb' : '#fff',
               color: '#222',
               fontWeight: 'bold',
               fontSize: '1.15rem',
-              cursor: 'pointer',
+              cursor: signInPending ? 'wait' : 'pointer',
               boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
               display: 'flex',
               alignItems: 'center',
               gap: 12,
               transition: 'background 0.2s, color 0.2s',
               borderBottom: '3px solid #1976d2',
+              opacity: signInPending ? 0.85 : 1,
             }}
-            onMouseOver={e => { e.target.style.background = '#e3f0fb'; }}
-            onMouseOut={e => { e.target.style.background = '#fff'; }}
+            onMouseOver={e => { if (!signInPending) e.currentTarget.style.background = '#e3f0fb'; }}
+            onMouseOut={e => { if (!signInPending) e.currentTarget.style.background = '#fff'; }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" style={{ marginRight: 8 }}><g><path fill="#4285F4" d="M21.805 10.023h-9.765v3.977h5.617c-.242 1.242-1.484 3.648-5.617 3.648-3.375 0-6.125-2.789-6.125-6.148 0-3.359 2.75-6.148 6.125-6.148 1.922 0 3.211.82 3.953 1.523l2.703-2.633c-1.719-1.594-3.953-2.57-6.656-2.57-5.523 0-10 4.477-10 10s4.477 10 10 10c5.781 0 9.594-4.055 9.594-9.773 0-.656-.07-1.148-.164-1.477z"></path><path fill="#34A853" d="M3.153 7.345l3.281 2.406c.891-1.781 2.531-2.953 4.566-2.953 1.109 0 2.125.383 2.922 1.016l2.797-2.719c-1.484-1.367-3.406-2.094-5.719-2.094-3.672 0-6.75 2.484-7.844 5.844z"></path><path fill="#FBBC05" d="M12 22c2.438 0 4.484-.805 5.977-2.188l-2.781-2.273c-.781.523-1.781.836-3.195.836-2.484 0-4.594-1.68-5.352-3.953l-3.273 2.531c1.484 3.273 4.828 5.047 8.624 5.047z"></path><path fill="#EA4335" d="M21.805 10.023h-9.765v3.977h5.617c-.242 1.242-1.484 3.648-5.617 3.648-3.375 0-6.125-2.789-6.125-6.148 0-3.359 2.75-6.148 6.125-6.148 1.922 0 3.211.82 3.953 1.523l2.703-2.633c-1.719-1.594-3.953-2.57-6.656-2.57-5.523 0-10 4.477-10 10s4.477 10 10 10c5.781 0 9.594-4.055 9.594-9.773 0-.656-.07-1.148-.164-1.477z" opacity=".1"></path></g></svg>
-            Sign in with Google
+            <svg width="24" height="24" viewBox="0 0 24 24" style={{ marginRight: 8 }} aria-hidden="true"><g><path fill="#4285F4" d="M21.805 10.023h-9.765v3.977h5.617c-.242 1.242-1.484 3.648-5.617 3.648-3.375 0-6.125-2.789-6.125-6.148 0-3.359 2.75-6.148 6.125-6.148 1.922 0 3.211.82 3.953 1.523l2.703-2.633c-1.719-1.594-3.953-2.57-6.656-2.57-5.523 0-10 4.477-10 10s4.477 10 10 10c5.781 0 9.594-4.055 9.594-9.773 0-.656-.07-1.148-.164-1.477z"></path><path fill="#34A853" d="M3.153 7.345l3.281 2.406c.891-1.781 2.531-2.953 4.566-2.953 1.109 0 2.125.383 2.922 1.016l2.797-2.719c-1.484-1.367-3.406-2.094-5.719-2.094-3.672 0-6.75 2.484-7.844 5.844z"></path><path fill="#FBBC05" d="M12 22c2.438 0 4.484-.805 5.977-2.188l-2.781-2.273c-.781.523-1.781.836-3.195.836-2.484 0-4.594-1.68-5.352-3.953l-3.273 2.531c1.484 3.273 4.828 5.047 8.624 5.047z"></path><path fill="#EA4335" d="M21.805 10.023h-9.765v3.977h5.617c-.242 1.242-1.484 3.648-5.617 3.648-3.375 0-6.125-2.789-6.125-6.148 0-3.359 2.75-6.148 6.125-6.148 1.922 0 3.211.82 3.953 1.523l2.703-2.633c-1.719-1.594-3.953-2.57-6.656-2.57-5.523 0-10 4.477-10 10s4.477 10 10 10c5.781 0 9.594-4.055 9.594-9.773 0-.656-.07-1.148-.164-1.477z" opacity=".1"></path></g></svg>
+            {signInPending ? (shouldUseGoogleAuthRedirect() ? 'Redirecting to Google…' : 'Signing in…') : 'Sign in with Google'}
           </button>
+          {shouldUseGoogleAuthRedirect() && (
+            <p style={{ fontSize: '0.85em', color: '#666', marginTop: 20, textAlign: 'center', lineHeight: 1.45, maxWidth: 300 }}>
+              On mobile, use{' '}
+              <a href={`https://${HOSTING_DOMAINS.firebaseApp}`} style={{ color: '#1976d2', fontWeight: 600 }}>
+                {HOSTING_DOMAINS.firebaseApp}
+              </a>
+              {' '}for Google sign-in.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -1272,7 +1320,7 @@ function App() {
   }
 
   return (
-    <div className="App" style={{ minHeight: '100vh', background: '#2d313a', display: 'flex', flexDirection: 'column' }}>
+    <div className="App">
       {teamModals}
       {/* Only show session details panel when open, hide all other UI */}
       {session && showSessionDetails && !modalOpen ? (
@@ -1454,24 +1502,9 @@ function App() {
           </div>
         </div>
       ) : (
-        <>
-          {/* Modernized Header */}
-          <header style={{
-            width: '100%',
-            background: 'rgba(25, 118, 210, 0.04)',
-            padding: '0 0 0 0',
-            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.04)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            minHeight: 72,
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 9999,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingLeft: 32 }}>
+        <div className="app-shell">
+          <header className="app-header">
+            <div className="app-header__left">
               <span style={{
                 fontWeight: 'bold',
                 fontSize: '1.35em',
@@ -1496,9 +1529,8 @@ function App() {
                 </select>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 32 }}>
+            <div className="app-header__right">
               <span style={{
-                marginRight: 20,
                 fontWeight: 'bold',
                 fontSize: '1.15em',
                 color: '#1976d2',
@@ -1516,94 +1548,44 @@ function App() {
             </div>
           </header>
           {/* Main Content Area */}
-          <main style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 0,
-            position: 'relative',
-            width: '100%',
-            height: 'calc(100vh - 72px - 96px)', // header + bottom bar
-            marginTop: 72,
-          }}>
+          <main className="app-main-calendar">
             {!showSessionDetails && (
               <div className="calendar-container" style={{
-                background: '#fff',
                 borderRadius: 16,
                 boxShadow: '0 4px 24px rgba(25, 118, 210, 0.10)',
-                padding: 32,
-                maxWidth: 600,
                 minWidth: 340,
-                minHeight: 420,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
               }}>
               <Calendar
-                key={Object.keys(sessions).join(',')}
-                onChange={setDate}
                 value={date}
+                activeStartDate={calendarMonth}
+                onActiveStartDateChange={({ activeStartDate }) => {
+                  if (activeStartDate) setCalendarMonth(activeStartDate);
+                }}
                 onClickDay={handleDateClick}
                 tileContent={calendarTileContent}
-                    onActiveStartDateChange={({ activeStartDate }) => setCalendarMonth(activeStartDate)}
               />
             </div>
             )}
           </main>
-          {/* Fixed Bottom Bar for Actions */}
-          <div style={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(25, 118, 210, 0.04)',
-            padding: '24px 0 24px 0',
-            display: 'flex',
-            justifyContent: 'center',
-            gap: 32,
-            zIndex: 20,
-            boxShadow: '0 -2px 8px rgba(25, 118, 210, 0.04)'
-          }}>
-          <button
-            onClick={() => setDrillSectionOpen(true)}
-            style={{
-              padding: '12px 32px',
-              borderRadius: 8,
-              border: 'none',
-              background: '#1976d2',
-              color: '#fff',
-              fontWeight: 'bold',
-              fontSize: '1.2rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
-                transition: 'background 0.2s, color 0.2s',
-            }}
-          >
-            Drills/Exercises
-          </button>
-          {userRole === 'admin' && (
+          <footer className="app-bottom-bar">
             <button
-              onClick={() => setTemplateSectionOpen(true)}
-              style={{
-                padding: '12px 32px',
-                borderRadius: 8,
-                border: 'none',
-                background: '#1976d2',
-                color: '#fff',
-                fontWeight: 'bold',
-                fontSize: '1.2rem',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(25, 118, 210, 0.10)',
-                transition: 'background 0.2s, color 0.2s',
-              }}
+              type="button"
+              className="app-bottom-bar__btn"
+              onClick={() => setDrillSectionOpen(true)}
             >
-              Previous Practice Sessions
+              Drills/Exercises
             </button>
-          )}
-          </div>
-        </>
+            {userRole === 'admin' && (
+              <button
+                type="button"
+                className="app-bottom-bar__btn"
+                onClick={() => setTemplateSectionOpen(true)}
+              >
+                Previous Practice Sessions
+              </button>
+            )}
+          </footer>
+        </div>
       )}
       {/* Drills/Exercises Modal Trigger */}
       {drillSectionOpen && (
@@ -2269,11 +2251,11 @@ function App() {
   );
 }
 
-// Increase the calendar month/year label by 30%
+// Calendar month/year label sizing (kept modest so the grid fits above the bottom bar)
 const calendarLabelStyle = document.createElement('style');
 calendarLabelStyle.innerHTML = `
   .react-calendar__navigation__label__labelText {
-    font-size: 2.25em !important;
+    font-size: 1.75rem !important;
   }
 `;
 if (!document.head.querySelector('#calendar-label-style')) {

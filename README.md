@@ -144,3 +144,54 @@ firebase deploy
 ## Responsive Design
 
 This app is fully responsive and works well on all screen sizes, including mobile phones, tablets, and desktop computers. All views and modals automatically adapt to the device being used, ensuring a smooth experience for every user.
+
+## User Roles
+
+The app supports two user roles for each team:
+
+- **Admin**
+  - The team creator is automatically assigned as admin.
+  - Admins can assign the role of admin or member to any team member.
+  - Admins can:
+    - View and manage all team members
+    - Add, edit, and delete drills
+    - Create, edit, and delete practice sessions
+    - Save and apply session templates
+    - Add, manage, and reorder drill categories
+    - Change the rank of drills
+    - Reorder, edit, and remove drills in a session
+
+- **Member**
+  - New users joining a team are assigned the member role by default.
+  - Members can:
+    - View the team calendar and session details
+    - Add new drills (but cannot edit or delete existing drills)
+    - Assign drills to sessions (if allowed by admin)
+    - View drill images and videos
+  - Members **cannot**:
+    - Edit or delete drills created by others
+    - Manage or create drill categories
+    - Change the rank of drills
+    - Reorder, edit, or remove drills in a session
+    - Save or apply session templates
+    - Delete sessions
+
+Admins can change a member's role to admin (and vice versa) from the Team Members modal.
+
+## Sign-In Troubleshooting
+
+If you or your users encounter the following error when trying to sign in with Google:
+
+> **Unable to process request due to missing initial state. This may happen if browser sessionStorage is inaccessible or accidentally cleared. Some specific scenarios are - 1) Using IDP-Initiated SAML SSO. 2) Using signInWithRedirect in a storage-partitioned browser environment.**
+
+This is usually caused by browser privacy settings or restrictions. To resolve this:
+
+- **Try a different browser** (e.g., Chrome, Firefox, Edge).
+- **Do not use private/incognito mode**—use a normal browsing window.
+- **Enable cookies and site data** in your browser settings.
+- **Disable privacy/security extensions** that may block cookies or storage.
+- **For Safari users:**
+  - Go to `Settings > Safari > Privacy & Security`.
+  - Disable **Prevent Cross-Site Tracking**.
+
+If you continue to have issues, make sure your browser allows session storage and cookies for the site.
